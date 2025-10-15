@@ -723,12 +723,13 @@ const BookOrderGameScreen = ({ section, onBack }) => {
         };
     }, [section]);
 
-    const [board, setBoard] = useState(getInitialState());
-    const [feedback, setFeedback] = useState({}); // { catTitle: 'correct' | 'incorrect' }
+    const [board, setBoard] = useState(getInitialState);
+    const [feedback, setFeedback] = useState({});
     const [isComplete, setIsComplete] = useState(false);
+    const [touchDraggingBook, setTouchDraggingBook] = useState(null);
+    const [dragOverCatIndex, setDragOverCatIndex] = useState(null);
     
-    const dragItem = useRef(null); // { bookName, fromCatIndex }
-    const dragOverItem = useRef(null); // { bookName, toCatIndex }
+    const dragItem = useRef(null);
 
     const checkCompletion = useCallback((currentBoard) => {
         const correct = currentBoard.categories.every(cat => {
@@ -744,7 +745,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
         }
     }, [section]);
 
-    const handleDrop = (toCatIndex) => {
+    const handleDrop = useCallback((toCatIndex) => {
         if (!dragItem.current) return;
 
         const { book, fromCatIndex } = dragItem.current;
@@ -753,32 +754,72 @@ const BookOrderGameScreen = ({ section, onBack }) => {
             const newBoard = JSON.parse(JSON.stringify(prevBoard));
             const targetCategory = newBoard.categories[toCatIndex];
 
-            // Only drop if there is capacity
             if (targetCategory.books.length >= targetCategory.capacity) {
                 return prevBoard;
             }
 
-            // Remove from old location
-            if (fromCatIndex === -1) { // from the unsorted pile
+            if (fromCatIndex === -1) {
                 newBoard.bookState = newBoard.bookState.filter(b => b.name !== book.name);
-            } else { // from another category
+            } else {
                 newBoard.categories[fromCatIndex].books = newBoard.categories[fromCatIndex].books.filter(b => b.name !== book.name);
             }
             
-            // Add to new location
             targetCategory.books.push(book);
 
             checkCompletion(newBoard);
             return newBoard;
         });
-
-        dragItem.current = null;
-    };
+    }, [checkCompletion]);
     
     const handleDragStart = (e, book, catIndex = -1) => {
         dragItem.current = { book, fromCatIndex: catIndex };
         e.dataTransfer.effectAllowed = 'move';
     };
+
+    const handleTouchStart = (e, book, catIndex = -1) => {
+        dragItem.current = { book, fromCatIndex: catIndex };
+        setTouchDraggingBook(book.name);
+    };
+
+    useEffect(() => {
+        const handleTouchMove = (e) => {
+            if (!dragItem.current || !touchDraggingBook) return;
+            if (e.cancelable) e.preventDefault();
+
+            const touch = e.touches[0];
+            const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+            const dropZone = targetElement?.closest('[data-droptarget-index]');
+            
+            if (dropZone) {
+                const toCatIndex = parseInt(dropZone.dataset.droptargetIndex, 10);
+                setDragOverCatIndex(toCatIndex);
+            } else {
+                setDragOverCatIndex(null);
+            }
+        };
+
+        const handleTouchEnd = (e) => {
+            if (!dragItem.current || !touchDraggingBook) return;
+
+            if (dragOverCatIndex !== null) {
+                handleDrop(dragOverCatIndex);
+            }
+            
+            dragItem.current = null;
+            setTouchDraggingBook(null);
+            setDragOverCatIndex(null);
+        };
+
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        window.addEventListener('touchend', handleTouchEnd);
+        window.addEventListener('touchcancel', handleTouchEnd);
+
+        return () => {
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+            window.removeEventListener('touchcancel', handleTouchEnd);
+        };
+    }, [touchDraggingBook, dragOverCatIndex, handleDrop]);
 
     const resetGame = useCallback(() => {
         setBoard(getInitialState());
@@ -788,7 +829,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
     
     useEffect(() => {
         resetGame();
-    }, [resetGame, section]);
+    }, [resetGame]);
     
      const checkOrder = () => {
         const newFeedback = {};
@@ -798,7 +839,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
             newFeedback[cat.title] = isCorrect ? 'correct' : 'incorrect';
         });
         setFeedback(newFeedback);
-        setTimeout(() => setFeedback({}), 2500); // Clear feedback after a delay
+        setTimeout(() => setFeedback({}), 2500);
     };
 
     if (isComplete) {
@@ -826,20 +867,27 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                     if (feedbackState === 'correct') feedbackClass = 'border-green-500 ring-2 ring-green-500';
                     else if (feedbackState === 'incorrect') feedbackClass = 'border-red-500 ring-2 ring-red-500';
                     
+                    const isDragOver = dragOverCatIndex === catIndex;
+                    const dragOverClass = isDragOver ? 'bg-sky-100 dark:bg-sky-900/50 ring-2 ring-sky-500' : '';
+
                     return e('fieldset', { 
                         key: category.title, 
-                        className: `border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 pt-1 min-h-[7rem] transition-all ${feedbackClass}`,
+                        'data-droptarget-index': catIndex,
+                        className: `border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 pt-1 min-h-[7rem] transition-all ${feedbackClass} ${dragOverClass}`,
                         onDragOver: (e) => e.preventDefault(),
                         onDrop: () => handleDrop(catIndex)
                      },
                         e('legend', { className: "px-2 font-bold text-sm text-slate-700 dark:text-slate-300" }, `${category.title} (${category.books.length}/${category.capacity})`),
                         e('div', { className: "flex flex-wrap gap-1 p-1" },
                             category.books.map((book) => {
+                                const isTouchDragging = touchDraggingBook === book.name;
                                 return e('div', { 
                                     key: book.name,
-                                    className: `flex items-center justify-center text-center p-1 h-12 w-20 bg-white dark:bg-slate-800 rounded-md shadow-sm border-2 border-transparent cursor-grab`,
+                                    className: `flex items-center justify-center text-center p-1 h-12 w-20 bg-white dark:bg-slate-800 rounded-md shadow-sm border-2 border-transparent cursor-grab ${isTouchDragging ? 'opacity-50' : ''}`,
                                     draggable: true,
                                     onDragStart: (e) => handleDragStart(e, book, catIndex),
+                                    onDragEnd: () => { dragItem.current = null; },
+                                    onTouchStart: (e) => handleTouchStart(e, book, catIndex),
                                 }, 
                                     e('span', { className: "text-xs font-semibold break-words" }, book.name)
                                 );
@@ -851,17 +899,21 @@ const BookOrderGameScreen = ({ section, onBack }) => {
              e('div', {
                 className: "mt-4 w-full max-w-6xl p-4 border-t-4 border-dashed border-slate-300 dark:border-slate-700 min-h-[8rem]",
                 onDragOver: (e) => e.preventDefault(),
-                onDrop: () => {} // This is a no-op drop zone for aesthetic purposes
             },
                 e('div', { className: "flex flex-wrap gap-2 justify-center" },
-                     board.bookState.map(book => e('div', { 
-                        key: book.name,
-                        className: `flex items-center justify-center text-center p-1 h-12 w-20 bg-sky-100 dark:bg-sky-900/50 rounded-md shadow-sm border-2 border-sky-300 dark:border-sky-700 cursor-grab`,
-                        draggable: true,
-                        onDragStart: (e) => handleDragStart(e, book, -1),
-                    }, 
-                        e('span', { className: "text-xs font-semibold break-words" }, book.name)
-                    ))
+                     board.bookState.map(book => {
+                        const isTouchDragging = touchDraggingBook === book.name;
+                        return e('div', { 
+                            key: book.name,
+                            className: `flex items-center justify-center text-center p-1 h-12 w-20 bg-sky-100 dark:bg-sky-900/50 rounded-md shadow-sm border-2 border-sky-300 dark:border-sky-700 cursor-grab ${isTouchDragging ? 'opacity-50' : ''}`,
+                            draggable: true,
+                            onDragStart: (e) => handleDragStart(e, book, -1),
+                            onDragEnd: () => { dragItem.current = null; },
+                            onTouchStart: (e) => handleTouchStart(e, book, -1),
+                        }, 
+                            e('span', { className: "text-xs font-semibold break-words" }, book.name)
+                        )
+                    })
                 )
             ),
             e('div', { className: "mt-4 flex space-x-4" },
