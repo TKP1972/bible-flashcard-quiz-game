@@ -1,3 +1,4 @@
+
 const CACHE_NAME = 'bible-flashcard-quiz-v2'; // Version bump to trigger update
 const urlsToCache = [
   '/',
@@ -13,7 +14,8 @@ const urlsToCache = [
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap',
   'https://esm.sh/react@18.3.1',
-  'https://esm.sh/react-dom@18.3.1/client'
+  'https://esm.sh/react-dom@18.3.1/client',
+  'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://tkp1972.github.io/bible-flashcard-quiz-game/'
 ];
 
 self.addEventListener('install', event => {

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { homeScreenGames, flashcardDecks, bibleBookOrderData } from './data.js';
 import { QuizItemType } from './types.js';
@@ -7,7 +8,15 @@ const e = React.createElement;
 
 // --- Helper Functions & Constants ---
 const shuffleArray = (array) => {
-  return [...array].sort(() => Math.random() - 0.5);
+  if (array.length <= 1) {
+    return [...array];
+  }
+  let shuffledArray;
+  const originalOrderString = JSON.stringify(array);
+  do {
+    shuffledArray = [...array].sort(() => Math.random() - 0.5);
+  } while (JSON.stringify(shuffledArray) === originalOrderString);
+  return shuffledArray;
 };
 
 // --- Custom Hook for Service Worker Updates ---
@@ -112,8 +121,14 @@ const Header = ({ onBack, title, children }) => e('header', { className: "p-4 bg
 const HomeScreen = ({ onSelectGame, onInstall, canInstall }) => {
     return e('div', null,
         e(Header, { title: "Bible Flashcard Quiz" },
-            canInstall && e('button', { onClick: onInstall, className: "p-2 ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors", title: "Install App", 'aria-label': "Install App" },
-                e(DownloadIcon, { className: "w-6 h-6" })
+            canInstall && e('button', {
+                onClick: onInstall,
+                className: "flex items-center space-x-2 ml-2 px-3 py-1.5 bg-sky-600 text-white font-semibold rounded-full shadow-md hover:bg-sky-700 transition-colors text-sm",
+                title: "Install App for Offline Use",
+                'aria-label': "Install App for Offline Use"
+            },
+                e(DownloadIcon, { className: "w-5 h-5" }),
+                e('span', null, 'Install')
             )
         ),
         e('main', { className: "p-4 space-y-8" },
@@ -134,6 +149,34 @@ const HomeScreen = ({ onSelectGame, onInstall, canInstall }) => {
                             e('p', { className: "text-slate-600 dark:text-slate-400" }, game.description)
                         );
                     })
+                )
+            ),
+             e('section', { className: 'text-center' },
+                e('h3', { className: "text-lg font-bold text-slate-800 dark:text-slate-100 mb-2" }, "Share This App"),
+                e('div', { className: 'flex flex-col items-center justify-center bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md max-w-xs mx-auto' },
+                    e('img', {
+                        src: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://tkp1972.github.io/bible-flashcard-quiz-game/',
+                        alt: 'QR code for Bible Flashcard Quiz Game',
+                        width: 150,
+                        height: 150,
+                        className: 'rounded-md'
+                    }),
+                    e('p', { className: 'mt-3 text-sm text-slate-600 dark:text-slate-400' }, 'Scan the code to visit the page.'),
+                    e('a', {
+                        href: 'https://tkp1972.github.io/bible-flashcard-quiz-game/',
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                        className: 'mt-1 text-xs text-sky-600 dark:text-sky-400 hover:underline break-all'
+                    }, 'tkp1972.github.io/bible-flashcard-quiz-game/')
+                )
+            ),
+            e('section', { className: 'px-2 text-center' },
+                e('h3', { className: "font-semibold text-md text-slate-700 dark:text-slate-300" }, "Play Offline!"),
+                e('p', { className: "text-sm text-slate-500 dark:text-slate-400 mt-1" },
+                    "This app can be installed on your device to work without an internet connection."
+                ),
+                e('p', { className: "text-xs text-slate-500 dark:text-slate-500 mt-2" },
+                    "On iOS/iPadOS: Tap the Share button in Safari, then 'Add to Home Screen'."
                 )
             )
         )
@@ -698,227 +741,274 @@ const BookOrderMenuScreen = ({ onSelectSection, onBack }) => {
 };
 
 const BookOrderGameScreen = ({ section, onBack }) => {
-    const getInitialState = useCallback(() => {
-        const correctOrderMap = new Map();
-        section.categories.forEach(cat => {
-            cat.books.forEach(book => correctOrderMap.set(book, cat.title));
-        });
-
-        const allBooksShuffled = shuffleArray(section.categories.flatMap(c => c.books));
-        
-        const initialCategories = section.categories.map(cat => ({
-            title: cat.title,
-            books: [],
-            capacity: cat.books.length
-        }));
-
-        const bookState = allBooksShuffled.map(book => ({
-            name: book,
-            originalCategory: correctOrderMap.get(book)
-        }));
-
-        return {
-            bookState: bookState,
-            categories: initialCategories
-        };
-    }, [section]);
-
-    const [board, setBoard] = useState(getInitialState);
-    const [feedback, setFeedback] = useState({});
-    const [isComplete, setIsComplete] = useState(false);
-    const [touchDraggingBook, setTouchDraggingBook] = useState(null);
-    const [dragOverCatIndex, setDragOverCatIndex] = useState(null);
+    const [stage, setStage] = useState('books'); // 'books', 'categories', 'complete'
+    const [categoryIndex, setCategoryIndex] = useState(0);
+    const [completedCategories, setCompletedCategories] = useState([]);
     
+    const [sourceBooks, setSourceBooks] = useState([]);
+    const [targetBooks, setTargetBooks] = useState([]);
+    const [isCategoryCorrect, setIsCategoryCorrect] = useState(false);
+    
+    const [categoryOrder, setCategoryOrder] = useState([]);
+    const [feedback, setFeedback] = useState({ text: '', type: '' });
+
     const dragItem = useRef(null);
+    const dragOverItem = useRef(null);
+    const [dragOverIndex, setDragOverIndex] = useState(null);
 
-    const checkCompletion = useCallback((currentBoard) => {
-        const correct = currentBoard.categories.every(cat => {
-            const correctBooks = new Set(section.categories.find(c => c.title === cat.title).books);
-            return cat.books.length === correctBooks.size && cat.books.every(book => correctBooks.has(book.name));
-        });
+    const currentCategory = useMemo(() => section.categories[categoryIndex], [section, categoryIndex]);
 
-        if (correct) {
-            const finalFeedback = {};
-            section.categories.forEach(c => finalFeedback[c.title] = 'correct');
-            setFeedback(finalFeedback);
-            setTimeout(() => setIsComplete(true), 1500);
+    const setupCategory = useCallback((index) => {
+        const categoryData = section.categories[index];
+        if (!categoryData) return;
+        setSourceBooks(shuffleArray(categoryData.books.map(b => ({ name: b }))));
+        setTargetBooks([]);
+        setIsCategoryCorrect(false);
+        setFeedback({ text: '', type: '' });
+    }, [section.categories]);
+
+    useEffect(() => {
+        if (stage === 'books') {
+            setupCategory(categoryIndex);
         }
-    }, [section]);
+    }, [stage, categoryIndex, setupCategory]);
 
-    const handleDrop = useCallback((toCatIndex) => {
-        if (!dragItem.current) return;
-
-        const { book, fromCatIndex } = dragItem.current;
-
-        setBoard(prevBoard => {
-            const newBoard = JSON.parse(JSON.stringify(prevBoard));
-            const targetCategory = newBoard.categories[toCatIndex];
-
-            if (targetCategory.books.length >= targetCategory.capacity) {
-                return prevBoard;
-            }
-
-            if (fromCatIndex === -1) {
-                newBoard.bookState = newBoard.bookState.filter(b => b.name !== book.name);
-            } else {
-                newBoard.categories[fromCatIndex].books = newBoard.categories[fromCatIndex].books.filter(b => b.name !== book.name);
-            }
+    useEffect(() => {
+        if (stage === 'books' && currentCategory && sourceBooks.length === 0 && targetBooks.length > 0) {
+            const correctOrder = currentCategory.books;
+            const userOrder = targetBooks.map(b => b.name);
+            const isCorrect = JSON.stringify(correctOrder) === JSON.stringify(userOrder);
             
-            targetCategory.books.push(book);
+            setIsCategoryCorrect(isCorrect);
+            setFeedback({
+                text: isCorrect ? "Correct! Well done." : "The order is not quite right. Try again!",
+                type: isCorrect ? 'success' : 'error'
+            });
+        } else {
+             setIsCategoryCorrect(false);
+             if (feedback.type === 'error') {
+                 setFeedback({ text: '', type: '' });
+             }
+        }
+    }, [stage, sourceBooks, targetBooks, currentCategory]);
 
-            checkCompletion(newBoard);
-            return newBoard;
-        });
-    }, [checkCompletion]);
+    const handleNext = () => {
+        const newCompletedCategory = { title: currentCategory.title, books: targetBooks.map(b => b.name) };
+        const updatedCompleted = [...completedCategories, newCompletedCategory];
+        setCompletedCategories(updatedCompleted);
+
+        if (categoryIndex < section.categories.length - 1) {
+            setCategoryIndex(prev => prev + 1);
+        } else {
+            setStage('categories');
+            setCategoryOrder(shuffleArray(updatedCompleted));
+            setFeedback({ text: '', type: '' });
+        }
+    };
     
-    const handleDragStart = (e, book, catIndex = -1) => {
-        dragItem.current = { book, fromCatIndex: catIndex };
+    const resetCurrentCategory = () => {
+        setupCategory(categoryIndex);
+    }
+
+    const checkCategoryOrder = () => {
+        const correctOrder = section.categories.map(c => c.title);
+        const userOrder = categoryOrder.map(c => c.title);
+        const isCorrect = JSON.stringify(correctOrder) === JSON.stringify(userOrder);
+
+        if (isCorrect) {
+            setFeedback({ text: "Perfect! You've ordered everything correctly.", type: 'success' });
+            setTimeout(() => setStage('complete'), 1500);
+        } else {
+            setFeedback({ text: 'Not quite the right order for the categories. Try again!', type: 'error' });
+            setTimeout(() => setFeedback({text: '', type: ''}), 2500);
+        }
+    };
+    
+    // --- DND Handlers ---
+    const handleDragStart = (e, item, source, index) => {
+        dragItem.current = { item, source, index };
+        setTimeout(() => e.target.classList.add('opacity-50'), 0);
         e.dataTransfer.effectAllowed = 'move';
     };
 
-    const handleTouchStart = (e, book, catIndex = -1) => {
-        dragItem.current = { book, fromCatIndex: catIndex };
-        setTouchDraggingBook(book.name);
+    const handleDragEnd = (e) => {
+        e.target.classList.remove('opacity-50');
+        dragItem.current = null;
+        dragOverItem.current = null;
+        setDragOverIndex(null);
     };
 
-    useEffect(() => {
-        const handleTouchMove = (e) => {
-            if (!dragItem.current || !touchDraggingBook) return;
-            if (e.cancelable) e.preventDefault();
+    const handleDragOver = (e, target, index) => {
+        e.preventDefault();
+        if (target === 'targetBooks' || target === 'categories') {
+            dragOverItem.current = index;
+            setDragOverIndex(index);
+        } else {
+             dragOverItem.current = null;
+            setDragOverIndex(null);
+        }
+    };
 
-            const touch = e.touches[0];
-            const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
-            const dropZone = targetElement?.closest('[data-droptarget-index]');
+    const handleDrop = (e, target) => {
+        e.preventDefault();
+        if (!dragItem.current) return;
+        
+        const { item, source, index } = dragItem.current;
+        
+        // --- Book Sorting Stage ---
+        if (stage === 'books') {
+            const newSourceBooks = [...sourceBooks];
+            const newTargetBooks = [...targetBooks];
+
+            if (source === 'source' && target === 'targetBooks') {
+                newSourceBooks.splice(index, 1);
+                if (dragOverItem.current !== null) {
+                    newTargetBooks.splice(dragOverItem.current, 0, item);
+                } else {
+                    newTargetBooks.push(item);
+                }
+            } else if (source === 'target' && target === 'targetBooks') {
+                const draggedItem = newTargetBooks.splice(index, 1)[0];
+                 if (dragOverItem.current !== null) {
+                    newTargetBooks.splice(dragOverItem.current, 0, draggedItem);
+                } else {
+                    newTargetBooks.push(draggedItem);
+                }
+            } else if (source === 'target' && target === 'sourceBooks') {
+                const draggedItem = newTargetBooks.splice(index, 1)[0];
+                newSourceBooks.push(draggedItem);
+            }
             
-            if (dropZone) {
-                const toCatIndex = parseInt(dropZone.dataset.droptargetIndex, 10);
-                setDragOverCatIndex(toCatIndex);
+            setSourceBooks(newSourceBooks);
+            setTargetBooks(newTargetBooks);
+        }
+        
+        // --- Category Sorting Stage ---
+        if (stage === 'categories') {
+            const newCategoryOrder = [...categoryOrder];
+            const draggedItem = newCategoryOrder.splice(index, 1)[0];
+            if (dragOverItem.current !== null) {
+                newCategoryOrder.splice(dragOverItem.current, 0, draggedItem);
             } else {
-                setDragOverCatIndex(null);
+                 newCategoryOrder.push(draggedItem);
             }
-        };
-
-        const handleTouchEnd = (e) => {
-            if (!dragItem.current || !touchDraggingBook) return;
-
-            if (dragOverCatIndex !== null) {
-                handleDrop(dragOverCatIndex);
-            }
-            
-            dragItem.current = null;
-            setTouchDraggingBook(null);
-            setDragOverCatIndex(null);
-        };
-
-        window.addEventListener('touchmove', handleTouchMove, { passive: false });
-        window.addEventListener('touchend', handleTouchEnd);
-        window.addEventListener('touchcancel', handleTouchEnd);
-
-        return () => {
-            window.removeEventListener('touchmove', handleTouchMove);
-            window.removeEventListener('touchend', handleTouchEnd);
-            window.removeEventListener('touchcancel', handleTouchEnd);
-        };
-    }, [touchDraggingBook, dragOverCatIndex, handleDrop]);
+            setCategoryOrder(newCategoryOrder);
+        }
+    };
 
     const resetGame = useCallback(() => {
-        setBoard(getInitialState());
-        setFeedback({});
-        setIsComplete(false);
-    }, [getInitialState]);
-    
-    useEffect(() => {
-        resetGame();
-    }, [resetGame]);
-    
-     const checkOrder = () => {
-        const newFeedback = {};
-        board.categories.forEach(cat => {
-            const correctBooksForCat = new Set(section.categories.find(c => c.title === cat.title).books);
-            const isCorrect = cat.books.length === correctBooksForCat.size && cat.books.every(book => correctBooksForCat.has(book.name));
-            newFeedback[cat.title] = isCorrect ? 'correct' : 'incorrect';
-        });
-        setFeedback(newFeedback);
-        setTimeout(() => setFeedback({}), 2500);
-    };
+        setStage('books');
+        setCategoryIndex(0);
+        setCompletedCategories([]);
+        setCategoryOrder([]);
+    }, []);
 
-    if (isComplete) {
-      return e('div', { className: "flex flex-col h-screen" },
-        e(Header, { onBack, title: section.sectionTitle }),
-        e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in-up" },
-            e('h2', { className: "text-4xl font-bold mb-4" }, "Well done!"),
-            e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, `You correctly sorted the books of the ${section.sectionTitle}.`),
-            e('div', { className: "flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mt-8" },
-                e('button', { onClick: resetGame, className: "px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Play Again"),
-                e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Menu")
+    // --- Render logic ---
+    if (stage === 'complete') {
+        return e('div', { className: "flex flex-col h-screen" },
+            e(Header, { onBack, title: section.sectionTitle }),
+            e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in-up" },
+                e('h2', { className: "text-4xl font-bold mb-4 text-sky-600 dark:text-sky-400" }, "Congratulations!"),
+                e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, `You correctly sorted all books and categories for the ${section.sectionTitle}.`),
+                e('div', { className: "flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mt-8" },
+                    e('button', { onClick: resetGame, className: "px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Play Again"),
+                    e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Menu")
+                )
             )
-        )
-    );
+        );
     }
+    
+    const getFeedbackClass = (type) => {
+        if (type === 'success') return 'text-green-600 dark:text-green-400';
+        if (type === 'error') return 'text-red-600 dark:text-red-400';
+        return 'text-slate-600 dark:text-slate-400';
+    };
     
     return e('div', { className: "flex flex-col h-screen" },
         e(Header, { onBack, title: `Order: ${section.sectionTitle}` }),
-        e('main', { className: "flex-grow p-2 md:px-4 flex flex-col items-center" },
-            e('p', { className: "text-center text-slate-600 dark:text-slate-400 mb-4 max-w-3xl" }, "Drag the books from the bottom pile into their correct categories."),
-             e('div', { className: "w-full max-w-6xl flex flex-wrap justify-center items-start gap-3" },
-                board.categories.map((category, catIndex) => {
-                    const feedbackState = feedback[category.title];
-                    let feedbackClass = '';
-                    if (feedbackState === 'correct') feedbackClass = 'border-green-500 ring-2 ring-green-500';
-                    else if (feedbackState === 'incorrect') feedbackClass = 'border-red-500 ring-2 ring-red-500';
-                    
-                    const isDragOver = dragOverCatIndex === catIndex;
-                    const dragOverClass = isDragOver ? 'bg-sky-100 dark:bg-sky-900/50 ring-2 ring-sky-500' : '';
+        e('main', { className: "flex-grow p-4 flex flex-col items-center" },
+            
+            // --- Stage 1: Book Sorting ---
+            stage === 'books' && currentCategory && e('div', { key: categoryIndex, className: 'w-full max-w-4xl animate-fade-in' },
+                e('div', { className: 'text-center mb-4' },
+                    e('p', { className: 'text-sm font-semibold text-slate-500 dark:text-slate-400' }, `Category ${categoryIndex + 1} of ${section.categories.length}`),
+                    e('h2', { className: 'text-2xl font-bold' }, currentCategory.title),
+                ),
+                 e('div', {
+                    className: `border-2 border-dashed rounded-lg p-4 min-h-[10rem] transition-colors ${isCategoryCorrect ? 'border-green-500' : 'border-slate-400 dark:border-slate-600'}`,
+                    onDragOver: (e) => e.preventDefault(),
+                    onDrop: (e) => handleDrop(e, 'targetBooks')
+                },
+                    e('div', { className: 'flex flex-wrap gap-2' },
+                        targetBooks.map((book, index) => e(React.Fragment, { key: book.name },
+                            dragOverIndex === index && e('div', { className: 'w-1 h-10 bg-sky-500 rounded' }),
+                            e('div', {
+                                className: 'flex items-center justify-center text-center p-2 h-12 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-300 dark:border-slate-700 cursor-grab',
+                                draggable: true,
+                                onDragStart: (e) => handleDragStart(e, book, 'target', index),
+                                onDragEnd: handleDragEnd,
+                                onDragOver: (e) => handleDragOver(e, 'targetBooks', index)
+                            }, e('span', { className: "text-sm font-semibold" }, book.name))
+                        )),
+                         dragOverIndex === targetBooks.length && e('div', { className: 'w-1 h-10 bg-sky-500 rounded' })
+                    )
+                ),
+                
+                e('div', { className: 'text-center my-4 h-6' },
+                    e('p', { className: `font-semibold ${getFeedbackClass(feedback.type)}` }, feedback.text)
+                ),
 
-                    return e('fieldset', { 
-                        key: category.title, 
-                        'data-droptarget-index': catIndex,
-                        className: `border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 pt-1 min-h-[7rem] transition-all ${feedbackClass} ${dragOverClass}`,
-                        onDragOver: (e) => e.preventDefault(),
-                        onDrop: () => handleDrop(catIndex)
-                     },
-                        e('legend', { className: "px-2 font-bold text-sm text-slate-700 dark:text-slate-300" }, `${category.title} (${category.books.length}/${category.capacity})`),
-                        e('div', { className: "flex flex-wrap gap-1 p-1" },
-                            category.books.map((book) => {
-                                const isTouchDragging = touchDraggingBook === book.name;
-                                return e('div', { 
-                                    key: book.name,
-                                    className: `flex items-center justify-center text-center p-1 h-12 w-20 bg-white dark:bg-slate-800 rounded-md shadow-sm border-2 border-transparent cursor-grab ${isTouchDragging ? 'opacity-50' : ''}`,
-                                    draggable: true,
-                                    onDragStart: (e) => handleDragStart(e, book, catIndex),
-                                    onDragEnd: () => { dragItem.current = null; },
-                                    onTouchStart: (e) => handleTouchStart(e, book, catIndex),
-                                }, 
-                                    e('span', { className: "text-xs font-semibold break-words" }, book.name)
-                                );
-                            })
-                        )
-                    );
-                })
-            ),
-             e('div', {
-                className: "mt-4 w-full max-w-6xl p-4 border-t-4 border-dashed border-slate-300 dark:border-slate-700 min-h-[8rem]",
-                onDragOver: (e) => e.preventDefault(),
-            },
-                e('div', { className: "flex flex-wrap gap-2 justify-center" },
-                     board.bookState.map(book => {
-                        const isTouchDragging = touchDraggingBook === book.name;
-                        return e('div', { 
+                e('div', {
+                    className: 'mt-4 w-full p-4 border-t-2 border-slate-300 dark:border-slate-700 min-h-[8rem] bg-slate-50 dark:bg-slate-900/50 rounded-b-lg',
+                    onDragOver: (e) => e.preventDefault(),
+                    onDrop: (e) => handleDrop(e, 'sourceBooks')
+                },
+                    e('div', { className: 'flex flex-wrap gap-2 justify-center' },
+                        sourceBooks.map((book, index) => e('div', {
                             key: book.name,
-                            className: `flex items-center justify-center text-center p-1 h-12 w-20 bg-sky-100 dark:bg-sky-900/50 rounded-md shadow-sm border-2 border-sky-300 dark:border-sky-700 cursor-grab ${isTouchDragging ? 'opacity-50' : ''}`,
+                            className: 'flex items-center justify-center text-center p-2 h-12 bg-sky-100 dark:bg-sky-900/50 rounded-md shadow-sm border border-sky-300 dark:border-sky-700 cursor-grab',
                             draggable: true,
-                            onDragStart: (e) => handleDragStart(e, book, -1),
-                            onDragEnd: () => { dragItem.current = null; },
-                            onTouchStart: (e) => handleTouchStart(e, book, -1),
-                        }, 
-                            e('span', { className: "text-xs font-semibold break-words" }, book.name)
-                        )
-                    })
+                            onDragStart: (e) => handleDragStart(e, book, 'source', index),
+                            onDragEnd: handleDragEnd
+                        }, e('span', { className: "text-sm font-semibold" }, book.name)))
+                    )
+                ),
+
+                e('div', { className: "mt-6 flex justify-center space-x-4" },
+                    e('button', { onClick: resetCurrentCategory, className: "px-6 py-2 bg-slate-200 dark:bg-slate-700 font-semibold rounded-lg shadow-md hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors" }, "Reset"),
+                    isCategoryCorrect && e('button', { onClick: handleNext, className: "px-6 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors animate-fade-in" }, "Next Category")
                 )
             ),
-            e('div', { className: "mt-4 flex space-x-4" },
-                 e('button', { onClick: checkOrder, className: "px-8 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Check Order"),
-                 e('button', { onClick: resetGame, className: "px-8 py-3 bg-slate-200 dark:bg-slate-700 font-semibold rounded-lg shadow-md hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors" }, "Reset")
+
+            // --- Stage 2: Category Sorting ---
+            stage === 'categories' && e('div', { className: 'w-full max-w-4xl animate-fade-in' },
+                e('div', { className: 'text-center mb-4' },
+                    e('h2', { className: 'text-2xl font-bold' }, 'Final Step: Order the Categories'),
+                    e('p', { className: `font-semibold h-6 mt-2 ${getFeedbackClass(feedback.type)}` }, feedback.text || "Drag and drop the categories into their correct sequence.")
+                ),
+                e('div', {
+                    className: 'space-y-3',
+                    onDragOver: (e) => e.preventDefault(),
+                    onDrop: (e) => handleDrop(e, 'categories')
+                },
+                    categoryOrder.map((cat, index) => e(React.Fragment, { key: cat.title },
+                         dragOverIndex === index && e('div', { className: 'h-1 w-full bg-sky-500 rounded' }),
+                         e('div', {
+                            className: 'w-full p-4 bg-white dark:bg-slate-800 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 cursor-grab',
+                            draggable: true,
+                            onDragStart: (e) => handleDragStart(e, cat, 'categories', index),
+                            onDragEnd: handleDragEnd,
+                            onDragOver: (e) => handleDragOver(e, 'categories', index)
+                        },
+                            e('h3', { className: 'font-bold text-lg text-sky-700 dark:text-sky-300' }, cat.title),
+                            e('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mt-1' }, cat.books.join(', '))
+                        )
+                    )),
+                    dragOverIndex === categoryOrder.length && e('div', { className: 'h-1 w-full bg-sky-500 rounded' })
+                ),
+                e('div', { className: "mt-6 flex justify-center space-x-4" },
+                    e('button', { onClick: checkCategoryOrder, className: "px-8 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Check Final Order")
+                )
             )
         )
     );
