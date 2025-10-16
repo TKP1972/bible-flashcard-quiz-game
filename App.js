@@ -131,6 +131,14 @@ const BookOpenIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/200
 const SunIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM20 11H23V13H20V11ZM1 11H4V13H1V11ZM16.9497 5.63604L19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604ZM5.63604 16.9497L3.51472 19.0711L4.92893 20.4853L7.05025 18.364L5.63604 16.9497Z"}));
 const MoonIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M10 7C10 9.76142 12.2386 12 15 12C16.4811 12 17.8225 11.3915 18.7831 10.4132C18.2713 12.4832 16.421 14 14 14C11.2386 14 9 11.7614 9 9C9 6.57901 10.5168 4.72873 12.5868 4.21693C11.6085 5.17754 11 6.51891 11 8C11 8.32174 11.0233 8.63821 11.0681 8.94711C10.5561 8.44873 10.1813 7.75519 10 7ZM12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2Z"}));
 const DesktopIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M21 15H3V3H21V15ZM21 1H3C1.89543 1 1 1.89543 1 3V15C1 16.1046 1.89543 17 3 17H8V21H10V19H14V21H16V17H21C22.1046 17 23 16.1046 23 15V3C23 1.89543 22.1046 1 21 1Z"}));
+const DragHandleIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className },
+  e('path', { d: "M11 5C11 6.10457 10.1046 7 9 7C7.89543 7 7 6.10457 7 5C7 3.89543 7.89543 3 9 3C10.1046 3 11 3.89543 11 5Z"}),
+  e('path', { d: "M11 12C11 13.1046 10.1046 14 9 14C7.89543 14 7 13.1046 7 12C7 10.8954 7.89543 10 9 10C10.1046 10 11 10.8954 11 12Z"}),
+  e('path', { d: "M11 19C11 20.1046 10.1046 21 9 21C7.89543 21 7 20.1046 7 19C7 17.8954 7.89543 17 9 17C10.1046 17 11 17.8954 11 19Z"}),
+  e('path', { d: "M17 5C17 6.10457 16.1046 7 15 7C13.8954 7 13 6.10457 13 5C13 3.89543 13.8954 3 15 3C16.1046 3 17 3.89543 17 5Z"}),
+  e('path', { d: "M17 12C17 13.1046 16.1046 14 15 14C13.8954 14 13 13.1046 13 12C13 10.8954 13.8954 10 15 10C16.1046 10 17 10.8954 17 12Z"}),
+  e('path', { d: "M17 19C17 20.1046 16.1046 21 15 21C13.8954 21 13 20.1046 13 19C13 17.8954 13.8954 17 15 17C16.1046 17 17 17.8954 17 19Z"}),
+);
 
 
 const ICONS = {
@@ -312,12 +320,12 @@ const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack }) => {
         let pairs = [];
         if (item.type === QuizItemType.QA && item.answers) {
             item.answers.forEach(answer => {
-                pairs.push({ id: answer.reference, item1: answer.reference, item2: answer.keyPhrase || answer.text });
+                pairs.push({ id: answer.reference, item1: answer.reference, item2: answer.text });
             });
         } else if (item.type === QuizItemType.PROPHECY && item.pairs) {
             item.pairs.forEach(pair => {
-                if (pair.prophecy) pairs.push({ id: pair.prophecy.reference, item1: pair.prophecy.reference, item2: pair.prophecy.keyPhrase || pair.prophecy.text });
-                if (pair.fulfillment) pairs.push({ id: pair.fulfillment.reference, item1: pair.fulfillment.reference, item2: pair.fulfillment.keyPhrase || pair.fulfillment.text });
+                if (pair.prophecy) pairs.push({ id: pair.prophecy.reference, item1: pair.prophecy.reference, item2: pair.prophecy.text });
+                if (pair.fulfillment) pairs.push({ id: pair.fulfillment.reference, item1: pair.fulfillment.reference, item2: pair.fulfillment.text });
             });
         }
 
@@ -684,6 +692,22 @@ const MatchingGameScreen = ({ topic, onBack }) => {
         initializeGame();
     }, [initializeGame]);
     
+    const handleSelectA = (item) => {
+        if (selectedA?.id === item.id) {
+            setSelectedA(null); // Deselect if clicked again
+        } else {
+            setSelectedA(item);
+        }
+    };
+
+    const handleSelectB = (item) => {
+        if (selectedB?.id === item.id) {
+            setSelectedB(null); // Deselect if clicked again
+        } else {
+            setSelectedB(item);
+        }
+    };
+
     useEffect(() => {
         if (selectedA && selectedB) {
             const isMatch = matchMap.get(selectedA.content) === selectedB.content;
@@ -730,7 +754,7 @@ const MatchingGameScreen = ({ topic, onBack }) => {
         const isMatched = matchedPairs.has(item.id);
         const isIncorrect = isA ? incorrectPair?.aId === item.id : incorrectPair?.bId === item.id;
 
-        let base = "w-full p-4 rounded-lg border-2 text-center flex items-center justify-center transition-all duration-300 cursor-pointer ";
+        let base = `w-full p-4 rounded-lg border-2 ${isA ? 'text-center' : 'text-left'} flex ${isA ? 'items-center justify-center' : 'items-start'} transition-all duration-300 cursor-pointer `;
         if (isMatched) return base + "bg-green-100 dark:bg-green-900/50 border-green-500 text-green-800 dark:text-green-300 opacity-60 cursor-default";
         if (isIncorrect) return base + "bg-red-100 dark:bg-red-900/50 border-red-500 transform scale-105 animate-pulse";
         if (isSelected) return base + "bg-sky-100 dark:bg-sky-900/50 border-sky-500 ring-2 ring-sky-500 transform scale-105 shadow-lg";
@@ -879,6 +903,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
         setIsDragging(true);
         if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', ''); // For Firefox compatibility
         }
     }, []);
 
@@ -887,6 +912,21 @@ const BookOrderGameScreen = ({ section, onBack }) => {
         dragOverItem.current = null;
         setDragOverIndex(null);
         setIsDragging(false);
+    }, []);
+
+    const handleDragOver = useCallback((e, index) => {
+        e.preventDefault(); // Necessary to allow dropping
+        if (dragOverItem.current !== index) {
+            dragOverItem.current = index;
+            setDragOverIndex(index);
+        }
+    }, []);
+
+    const handleContainerDragLeave = useCallback((e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+            dragOverItem.current = null;
+            setDragOverIndex(null);
+        }
     }, []);
 
     const handleDrop = useCallback((e, target) => {
@@ -925,7 +965,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
         }
         
         handleDragEnd();
-    }, [stage, sourceBooks, targetBooks, categoryOrder, dragOverItem, handleDragEnd]);
+    }, [stage, sourceBooks, targetBooks, categoryOrder, handleDragEnd]);
 
     useEffect(() => {
         const moveHandler = (clientX, clientY) => {
@@ -1026,7 +1066,13 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                  e('div', {
                     'data-dnd-container': 'targetBooks',
                     className: `border-2 border-dashed rounded-lg p-4 min-h-[10rem] transition-colors ${isCategoryCorrect ? 'border-green-500' : 'border-slate-400 dark:border-slate-600'}`,
-                    onDragOver: (e) => e.preventDefault(),
+                    onDragOver: (e) => {
+                        e.preventDefault();
+                        if (e.target.dataset.dndContainer === 'targetBooks') {
+                            handleDragOver(e, targetBooks.length);
+                        }
+                    },
+                    onDragLeave: handleContainerDragLeave,
                     onDrop: (e) => handleDrop(e, 'targetBooks')
                 },
                     e('div', { className: 'flex flex-wrap gap-2' },
@@ -1038,7 +1084,8 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                                 draggable: true,
                                 onDragStart: (e) => handleDragStart(e, book, 'target', index),
                                 onTouchStart: (e) => handleDragStart(e, book, 'target', index),
-                                onDragEnd: handleDragEnd
+                                onDragEnd: handleDragEnd,
+                                onDragOver: (e) => { e.stopPropagation(); handleDragOver(e, index); }
                             }, e('span', { className: "text-sm font-semibold" }, book.name))
                         )),
                          dragOverIndex === targetBooks.length && e('div', { className: 'w-1 h-10 bg-sky-500 rounded' })
@@ -1081,16 +1128,22 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                 e('div', {
                     'data-dnd-container': 'categories',
                     className: 'space-y-3',
-                    onDragOver: (e) => e.preventDefault(),
+                    onDragOver: (e) => {
+                        e.preventDefault();
+                        if (e.target.dataset.dndContainer === 'categories') {
+                           handleDragOver(e, categoryOrder.length);
+                        }
+                    },
+                    onDragLeave: handleContainerDragLeave,
                     onDrop: (e) => handleDrop(e, 'categories')
                 },
                     categoryOrder.map((cat, index) => {
                         const isDraggable = !isFinalOrderCorrect;
-                        const categoryBoxClass = `w-full p-4 rounded-lg shadow-md transition-colors duration-500 ${
+                        const categoryBoxClass = `w-full p-4 rounded-lg shadow-md transition-colors duration-500 flex items-center justify-between ${
                             isFinalOrderCorrect
                                 ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
                                 : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
-                        } ${isDraggable ? 'cursor-grab touch-none' : ''}`;
+                        }`;
                         
                         const titleClass = isFinalOrderCorrect
                             ? 'font-bold text-lg text-green-800 dark:text-green-200'
@@ -1104,13 +1157,19 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                              e('div', {
                                 'data-dnd-index': index, 'data-dnd-zone': 'categories',
                                 className: categoryBoxClass,
-                                draggable: isDraggable,
-                                onDragStart: isDraggable ? (e) => handleDragStart(e, cat, 'categories', index) : undefined,
-                                onTouchStart: isDraggable ? (e) => handleDragStart(e, cat, 'categories', index) : undefined,
-                                onDragEnd: handleDragEnd,
+                                onDragOver: isDraggable ? (e) => { e.stopPropagation(); handleDragOver(e, index); } : undefined,
                             },
-                                e('h3', { className: titleClass }, cat.title),
-                                e('p', { className: booksClass }, cat.books.join(', '))
+                                e('div', { className: 'flex-grow' },
+                                    e('h3', { className: titleClass }, cat.title),
+                                    e('p', { className: booksClass }, cat.books.join(', '))
+                                ),
+                                isDraggable && e('div', {
+                                    className: 'ml-4 p-2 cursor-grab touch-none rounded-md hover:bg-slate-200 dark:hover:bg-slate-700',
+                                    draggable: true,
+                                    onDragStart: (e) => handleDragStart(e, cat, 'categories', index),
+                                    onTouchStart: (e) => handleDragStart(e, cat, 'categories', index),
+                                    onDragEnd: handleDragEnd,
+                                }, e(DragHandleIcon, { className: 'w-6 h-6 text-slate-500 dark:text-slate-400' }))
                             )
                         );
                     }),
