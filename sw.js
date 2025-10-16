@@ -1,5 +1,4 @@
-
-const CACHE_NAME = 'bible-flashcard-quiz-v3'; // Version bump to trigger update
+const CACHE_NAME = 'bible-flashcard-quiz-v4'; // Version bump to trigger update
 const urlsToCache = [
   '/',
   '/index.html',
@@ -15,8 +14,8 @@ const urlsToCache = [
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap',
   'https://esm.sh/react@18.3.1',
   'https://esm.sh/react-dom@18.3.1/client',
-  'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://tkp1972.github.io/bible-flashcard-quiz-game/',
-  // Added missing CDN resources for full offline support
+  // The QR code is now cached by the fetch handler, not pre-cached.
+  // This makes the install more reliable.
   'https://aistudiocdn.com/@google/genai@1.25.0',
   'https://aistudiocdn.com/react-dom@19.2.0/'
 ];
@@ -42,8 +41,8 @@ self.addEventListener('fetch', event => {
       return cache.match(event.request).then(response => {
         // Return response from cache if found.
         const fetchPromise = fetch(event.request).then(networkResponse => {
-          // IMPORTANT: Check for valid response before caching
-          if (networkResponse && networkResponse.status === 200) {
+          // Allow caching of successful responses and opaque responses (for no-cors requests like images from CDNs)
+          if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
             cache.put(event.request, networkResponse.clone());
           }
           return networkResponse;
