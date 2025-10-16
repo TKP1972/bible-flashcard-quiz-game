@@ -755,6 +755,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
     const dragItem = useRef(null);
     const dragOverItem = useRef(null);
     const [dragOverIndex, setDragOverIndex] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     const currentCategory = useMemo(() => section.categories[categoryIndex], [section, categoryIndex]);
 
@@ -790,7 +791,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                  setFeedback({ text: '', type: '' });
              }
         }
-    }, [stage, sourceBooks, targetBooks, currentCategory]);
+    }, [stage, sourceBooks, targetBooks, currentCategory, feedback.type]);
 
     const handleNext = () => {
         const newCompletedCategory = { title: currentCategory.title, books: targetBooks.map(b => b.name) };
@@ -823,57 +824,40 @@ const BookOrderGameScreen = ({ section, onBack }) => {
             setTimeout(() => setFeedback({text: '', type: ''}), 2500);
         }
     };
-    
-    // --- DND Handlers ---
-    const handleDragStart = (e, item, source, index) => {
-        dragItem.current = { item, source, index };
-        setTimeout(() => e.target.classList.add('opacity-50'), 0);
-        e.dataTransfer.effectAllowed = 'move';
-    };
 
-    const handleDragEnd = (e) => {
-        e.target.classList.remove('opacity-50');
+    const handleDragStart = useCallback((e, item, source, index) => {
+        dragItem.current = { item, source, index };
+        setIsDragging(true);
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+        }
+    }, []);
+
+    const handleDragEnd = useCallback(() => {
         dragItem.current = null;
         dragOverItem.current = null;
         setDragOverIndex(null);
-    };
+        setIsDragging(false);
+    }, []);
 
-    const handleDragOver = (e, target, index) => {
-        e.preventDefault();
-        if (target === 'targetBooks' || target === 'categories') {
-            dragOverItem.current = index;
-            setDragOverIndex(index);
-        } else {
-             dragOverItem.current = null;
-            setDragOverIndex(null);
-        }
-    };
-
-    const handleDrop = (e, target) => {
+    const handleDrop = useCallback((e, target) => {
         e.preventDefault();
         if (!dragItem.current) return;
         
         const { item, source, index } = dragItem.current;
         
-        // --- Book Sorting Stage ---
         if (stage === 'books') {
-            const newSourceBooks = [...sourceBooks];
-            const newTargetBooks = [...targetBooks];
+            let newSourceBooks = [...sourceBooks];
+            let newTargetBooks = [...targetBooks];
 
             if (source === 'source' && target === 'targetBooks') {
                 newSourceBooks.splice(index, 1);
-                if (dragOverItem.current !== null) {
-                    newTargetBooks.splice(dragOverItem.current, 0, item);
-                } else {
-                    newTargetBooks.push(item);
-                }
+                const dropIndex = dragOverItem.current !== null ? dragOverItem.current : newTargetBooks.length;
+                newTargetBooks.splice(dropIndex, 0, item);
             } else if (source === 'target' && target === 'targetBooks') {
                 const draggedItem = newTargetBooks.splice(index, 1)[0];
-                 if (dragOverItem.current !== null) {
-                    newTargetBooks.splice(dragOverItem.current, 0, draggedItem);
-                } else {
-                    newTargetBooks.push(draggedItem);
-                }
+                const dropIndex = dragOverItem.current !== null ? dragOverItem.current : newTargetBooks.length;
+                newTargetBooks.splice(dropIndex, 0, draggedItem);
             } else if (source === 'target' && target === 'sourceBooks') {
                 const draggedItem = newTargetBooks.splice(index, 1)[0];
                 newSourceBooks.push(draggedItem);
@@ -883,18 +867,76 @@ const BookOrderGameScreen = ({ section, onBack }) => {
             setTargetBooks(newTargetBooks);
         }
         
-        // --- Category Sorting Stage ---
         if (stage === 'categories') {
-            const newCategoryOrder = [...categoryOrder];
+            let newCategoryOrder = [...categoryOrder];
             const draggedItem = newCategoryOrder.splice(index, 1)[0];
-            if (dragOverItem.current !== null) {
-                newCategoryOrder.splice(dragOverItem.current, 0, draggedItem);
-            } else {
-                 newCategoryOrder.push(draggedItem);
-            }
+            const dropIndex = dragOverItem.current !== null ? dragOverItem.current : newCategoryOrder.length;
+            newCategoryOrder.splice(dropIndex, 0, draggedItem);
             setCategoryOrder(newCategoryOrder);
         }
-    };
+        
+        handleDragEnd();
+    }, [stage, sourceBooks, targetBooks, categoryOrder, dragOverItem, handleDragEnd]);
+
+    useEffect(() => {
+        const moveHandler = (clientX, clientY) => {
+            const element = document.elementFromPoint(clientX, clientY);
+            if (!element) return;
+
+            const dropTarget = element.closest('[data-dnd-index]');
+            let newDragOverIndex = null;
+            
+            if (dropTarget) {
+                const index = parseInt(dropTarget.dataset.dndIndex, 10);
+                const zone = dropTarget.dataset.dndZone;
+                if ((stage === 'books' && zone === 'targetBooks') || (stage === 'categories' && zone === 'categories')) {
+                    newDragOverIndex = index;
+                }
+            } else {
+                const dropContainer = element.closest('[data-dnd-container]');
+                if (dropContainer) {
+                    const zone = dropContainer.dataset.dndContainer;
+                    if (stage === 'books' && zone === 'targetBooks') newDragOverIndex = targetBooks.length;
+                    else if (stage === 'categories' && zone === 'categories') newDragOverIndex = categoryOrder.length;
+                }
+            }
+            
+            if (newDragOverIndex !== dragOverIndex) {
+                 dragOverItem.current = newDragOverIndex;
+                 setDragOverIndex(newDragOverIndex);
+            }
+        };
+
+        const handleTouchMove = e => {
+            if (isDragging) {
+                 e.preventDefault();
+                 const touch = e.touches[0];
+                 moveHandler(touch.clientX, touch.clientY);
+            }
+        };
+
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        
+        const handleTouchEnd = (e) => {
+            if (isDragging) {
+                const touch = e.changedTouches[0];
+                const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                const container = element ? element.closest('[data-dnd-container]') : null;
+                if (container) {
+                    handleDrop(e, container.dataset.dndContainer);
+                } else {
+                    handleDragEnd();
+                }
+            }
+        };
+
+        window.addEventListener('touchend', handleTouchEnd);
+        
+        return () => {
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [isDragging, stage, targetBooks.length, categoryOrder.length, dragOverIndex, handleDrop, handleDragEnd]);
 
     const resetGame = useCallback(() => {
         setStage('books');
@@ -903,7 +945,6 @@ const BookOrderGameScreen = ({ section, onBack }) => {
         setCategoryOrder([]);
     }, []);
 
-    // --- Render logic ---
     if (stage === 'complete') {
         return e('div', { className: "flex flex-col h-screen" },
             e(Header, { onBack, title: section.sectionTitle }),
@@ -927,14 +968,13 @@ const BookOrderGameScreen = ({ section, onBack }) => {
     return e('div', { className: "flex flex-col h-screen" },
         e(Header, { onBack, title: `Order: ${section.sectionTitle}` }),
         e('main', { className: "flex-grow p-4 flex flex-col items-center" },
-            
-            // --- Stage 1: Book Sorting ---
             stage === 'books' && currentCategory && e('div', { key: categoryIndex, className: 'w-full max-w-4xl animate-fade-in' },
                 e('div', { className: 'text-center mb-4' },
                     e('p', { className: 'text-sm font-semibold text-slate-500 dark:text-slate-400' }, `Category ${categoryIndex + 1} of ${section.categories.length}`),
                     e('h2', { className: 'text-2xl font-bold' }, currentCategory.title),
                 ),
                  e('div', {
+                    'data-dnd-container': 'targetBooks',
                     className: `border-2 border-dashed rounded-lg p-4 min-h-[10rem] transition-colors ${isCategoryCorrect ? 'border-green-500' : 'border-slate-400 dark:border-slate-600'}`,
                     onDragOver: (e) => e.preventDefault(),
                     onDrop: (e) => handleDrop(e, 'targetBooks')
@@ -943,11 +983,12 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                         targetBooks.map((book, index) => e(React.Fragment, { key: book.name },
                             dragOverIndex === index && e('div', { className: 'w-1 h-10 bg-sky-500 rounded' }),
                             e('div', {
-                                className: 'flex items-center justify-center text-center p-2 h-12 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-300 dark:border-slate-700 cursor-grab',
+                                'data-dnd-index': index, 'data-dnd-zone': 'targetBooks',
+                                className: 'flex items-center justify-center text-center p-2 h-12 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-300 dark:border-slate-700 cursor-grab touch-none',
                                 draggable: true,
                                 onDragStart: (e) => handleDragStart(e, book, 'target', index),
-                                onDragEnd: handleDragEnd,
-                                onDragOver: (e) => handleDragOver(e, 'targetBooks', index)
+                                onTouchStart: (e) => handleDragStart(e, book, 'target', index),
+                                onDragEnd: handleDragEnd
                             }, e('span', { className: "text-sm font-semibold" }, book.name))
                         )),
                          dragOverIndex === targetBooks.length && e('div', { className: 'w-1 h-10 bg-sky-500 rounded' })
@@ -959,6 +1000,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                 ),
 
                 e('div', {
+                    'data-dnd-container': 'sourceBooks',
                     className: 'mt-4 w-full p-4 border-t-2 border-slate-300 dark:border-slate-700 min-h-[8rem] bg-slate-50 dark:bg-slate-900/50 rounded-b-lg',
                     onDragOver: (e) => e.preventDefault(),
                     onDrop: (e) => handleDrop(e, 'sourceBooks')
@@ -966,10 +1008,11 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                     e('div', { className: 'flex flex-wrap gap-2 justify-center' },
                         sourceBooks.map((book, index) => e('div', {
                             key: book.name,
-                            className: 'flex items-center justify-center text-center p-2 h-12 bg-sky-100 dark:bg-sky-900/50 rounded-md shadow-sm border border-sky-300 dark:border-sky-700 cursor-grab',
+                            className: 'flex items-center justify-center text-center p-2 h-12 bg-sky-100 dark:bg-sky-900/50 rounded-md shadow-sm border border-sky-300 dark:border-sky-700 cursor-grab touch-none',
                             draggable: true,
                             onDragStart: (e) => handleDragStart(e, book, 'source', index),
-                            onDragEnd: handleDragEnd
+                            onTouchStart: (e) => handleDragStart(e, book, 'source', index),
+                            onDragEnd: handleDragEnd,
                         }, e('span', { className: "text-sm font-semibold" }, book.name)))
                     )
                 ),
@@ -980,13 +1023,13 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                 )
             ),
 
-            // --- Stage 2: Category Sorting ---
             stage === 'categories' && e('div', { className: 'w-full max-w-4xl animate-fade-in' },
                 e('div', { className: 'text-center mb-4' },
                     e('h2', { className: 'text-2xl font-bold' }, 'Final Step: Order the Categories'),
                     e('p', { className: `font-semibold h-6 mt-2 ${getFeedbackClass(feedback.type)}` }, feedback.text || "Drag and drop the categories into their correct sequence.")
                 ),
                 e('div', {
+                    'data-dnd-container': 'categories',
                     className: 'space-y-3',
                     onDragOver: (e) => e.preventDefault(),
                     onDrop: (e) => handleDrop(e, 'categories')
@@ -994,11 +1037,12 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                     categoryOrder.map((cat, index) => e(React.Fragment, { key: cat.title },
                          dragOverIndex === index && e('div', { className: 'h-1 w-full bg-sky-500 rounded' }),
                          e('div', {
-                            className: 'w-full p-4 bg-white dark:bg-slate-800 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 cursor-grab',
+                            'data-dnd-index': index, 'data-dnd-zone': 'categories',
+                            className: 'w-full p-4 bg-white dark:bg-slate-800 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 cursor-grab touch-none',
                             draggable: true,
                             onDragStart: (e) => handleDragStart(e, cat, 'categories', index),
+                            onTouchStart: (e) => handleDragStart(e, cat, 'categories', index),
                             onDragEnd: handleDragEnd,
-                            onDragOver: (e) => handleDragOver(e, 'categories', index)
                         },
                             e('h3', { className: 'font-bold text-lg text-sky-700 dark:text-sky-300' }, cat.title),
                             e('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mt-1' }, cat.books.join(', '))
