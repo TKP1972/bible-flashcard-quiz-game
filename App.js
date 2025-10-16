@@ -139,11 +139,57 @@ const DragHandleIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2
   e('path', { d: "M17 12C17 13.1046 16.1046 14 15 14C13.8954 14 13 13.1046 13 12C13 10.8954 13.8954 10 15 10C16.1046 10 17 10.8954 17 12Z"}),
   e('path', { d: "M17 19C17 20.1046 16.1046 21 15 21C13.8954 21 13 20.1046 13 19C13 17.8954 13.8954 17 15 17C16.1046 17 17 17.8954 17 19Z"}),
 );
+const QuestionMarkIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: 'M12,2C6.477,2,2,6.477,2,12s4.477,10,10,10s10-4.477,10-10S17.523,2,12,2z M12,17c-0.552,0-1-0.448-1-1v-4c0-0.552,0.448-1,1-1 s1,0.448,1,1v4C13,16.552,12.552,17,12,17z M12,9c-0.552,0-1-0.448-1-1s0.448-1,1-1s1,0.448,1,1S12.552,9,12,9z' }));
 
 
 const ICONS = {
     Gamepad: GamepadIcon,
     BookOpen: BookOpenIcon,
+};
+
+const InstructionsScreen = ({ onDismiss, isInitialWelcome }) => {
+  const instructions = [
+    {
+      icon: 'BookOpen',
+      title: 'Flashcard Decks',
+      text: 'Select a category to study. Flip the cards to reveal the answer. Use the shuffle and reverse mode buttons for an extra challenge.'
+    },
+    {
+      icon: 'Gamepad',
+      title: 'Match the Scripture',
+      text: 'Pick a topic, then match the scripture reference on the left with its corresponding text on the right. A correct match will turn green!'
+    },
+    {
+      icon: 'Gamepad',
+      title: 'Bible Book Order',
+      text: 'First, drag the books into the correct order for each category. Then, arrange the categories themselves to complete the challenge.'
+    }
+  ];
+
+  return e('div', { className: 'fixed inset-0 bg-slate-50 dark:bg-slate-900 z-50 flex flex-col items-center justify-center p-4 sm:p-6 animate-fade-in' },
+    e('div', { className: 'w-full max-w-2xl text-center' },
+      e('h1', { className: 'text-4xl sm:text-5xl font-bold font-serif text-sky-600 dark:text-sky-400 mb-4' }, isInitialWelcome ? "Welcome!" : "How to Play"),
+      e('p', { className: 'text-lg text-slate-700 dark:text-slate-300 mb-8' }, isInitialWelcome ? "Ready to sharpen your Bible knowledge? Here’s how to play:" : "A quick reminder on how to play each mode:"),
+      
+      e('div', { className: 'space-y-6 text-left max-w-lg mx-auto' },
+        instructions.map(item => {
+          const IconComponent = ICONS[item.icon];
+          return e('div', { key: item.title, className: 'flex items-start space-x-4' },
+            e(IconComponent, { className: 'w-8 h-8 text-sky-500 mt-1 flex-shrink-0' }),
+            e('div', null,
+              e('h3', { className: 'text-xl font-bold text-slate-800 dark:text-slate-100' }, item.title),
+              e('p', { className: 'text-slate-600 dark:text-slate-400' }, item.text)
+            )
+          )
+        })
+      ),
+
+      e('button', {
+        onClick: onDismiss,
+        className: 'mt-12 px-8 py-4 bg-sky-600 text-white text-lg font-bold rounded-full shadow-lg hover:bg-sky-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-50 dark:focus:ring-offset-slate-900'
+      }, isInitialWelcome ? "Let's Get Started" : "Got It!")
+    )
+  );
 };
 
 // --- Error Boundary ---
@@ -183,17 +229,25 @@ const Header = ({ onBack, title, children }) => e('header', { className: "p-4 bg
     children
 );
 
-const HomeScreen = ({ onSelectGame, onInstall, canInstall }) => {
+const HomeScreen = ({ onSelectGame, onInstall, canInstall, onShowInstructions }) => {
     return e('div', null,
         e(Header, { title: "Bible Flashcard Quiz" },
-            canInstall && e('button', {
-                onClick: onInstall,
-                className: "flex items-center space-x-2 ml-2 px-3 py-1.5 bg-sky-600 text-white font-semibold rounded-full shadow-md hover:bg-sky-700 transition-colors text-sm",
-                title: "Install App for Offline Use",
-                'aria-label': "Install App for Offline Use"
-            },
-                e(DownloadIcon, { className: "w-5 h-5" }),
-                e('span', null, 'Install')
+            e('div', { className: 'flex items-center space-x-2 ml-2' },
+                canInstall && e('button', {
+                    onClick: onInstall,
+                    className: "flex items-center space-x-2 px-3 py-1.5 bg-sky-600 text-white font-semibold rounded-full shadow-md hover:bg-sky-700 transition-colors text-sm",
+                    title: "Install App for Offline Use",
+                    'aria-label': "Install App for Offline Use"
+                },
+                    e(DownloadIcon, { className: "w-5 h-5" }),
+                    e('span', null, 'Install')
+                ),
+                e('button', {
+                    onClick: onShowInstructions,
+                    className: "p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors",
+                    title: "How to Play",
+                    'aria-label': "Show how to play instructions"
+                }, e(QuestionMarkIcon, { className: "w-6 h-6" }))
             )
         ),
         e('main', { className: "p-4 space-y-8" },
@@ -1213,6 +1267,8 @@ const ThemeToggle = ({ theme, setTheme }) => {
 
 // --- Main App Component ---
 export default function App() {
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('hasSeenWelcome'));
+  const [showInstructions, setShowInstructions] = useState(false);
   const [view, setView] = useState({ name: 'home', topic: null });
   const [installPrompt, setInstallPrompt] = useState(null);
   const { showUpdateNotification, handleUpdate } = useServiceWorkerUpdater();
@@ -1235,6 +1291,18 @@ export default function App() {
       else console.log('User dismissed the install prompt');
       setInstallPrompt(null);
     });
+  };
+
+  const handleInstructionsDismiss = () => {
+    if (showWelcome) {
+        localStorage.setItem('hasSeenWelcome', 'true');
+        setShowWelcome(false);
+    }
+    setShowInstructions(false);
+  };
+  
+  const handleShowInstructions = () => {
+      setShowInstructions(true);
   };
 
   const handleSelectGame = (game) => {
@@ -1275,7 +1343,7 @@ export default function App() {
   const renderScreen = () => {
     switch (view.name) {
       case 'home':
-        return e(HomeScreen, { onSelectGame: handleSelectGame, onInstall: handleInstallClick, canInstall: !!installPrompt });
+        return e(HomeScreen, { onSelectGame: handleSelectGame, onInstall: handleInstallClick, canInstall: !!installPrompt, onShowInstructions: handleShowInstructions });
       case 'flashcards':
         return e(FlashcardsMenuScreen, { onSelectTopic: handleSelectTopic, onBack: handleBack });
       case 'scriptureMatchingMenu':
@@ -1304,7 +1372,9 @@ export default function App() {
 
   return e(ErrorBoundary, null,
     e('div', { className: 'relative min-h-screen' },
-        renderScreen(),
+        (showWelcome || showInstructions)
+            ? e(InstructionsScreen, { onDismiss: handleInstructionsDismiss, isInitialWelcome: showWelcome })
+            : renderScreen(),
         e(ThemeToggle, { theme, setTheme }),
         showUpdateNotification && e('div', { className: "fixed bottom-4 right-4 z-50 animate-fade-in-up" },
             e('div', { className: "bg-slate-900 dark:bg-slate-200 text-white dark:text-slate-900 rounded-lg shadow-xl p-4 flex items-center space-x-4" },
