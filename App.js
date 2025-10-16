@@ -710,16 +710,6 @@ const MatchingGameScreen = ({ topic, onBack }) => {
     }, [matchedPairs, topic.pairs.length]);
 
 
-    const handleSelectA = (item) => {
-        if (selectedA?.id === item.id || matchedPairs.has(item.id) || incorrectPair) return;
-        setSelectedA(item);
-    };
-
-    const handleSelectB = (item) => {
-        if (matchedPairs.has(item.id) || incorrectPair) return;
-        setSelectedB(item);
-    };
-
     if (isComplete) {
       return e('div', { className: "flex flex-col h-screen" },
         e(Header, { onBack, title: "Game Complete!" }),
@@ -808,6 +798,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
     
     const [categoryOrder, setCategoryOrder] = useState([]);
     const [feedback, setFeedback] = useState({ text: '', type: '' });
+    const [isFinalOrderCorrect, setIsFinalOrderCorrect] = useState(false);
 
     const dragItem = useRef(null);
     const dragOverItem = useRef(null);
@@ -874,6 +865,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
         const isCorrect = JSON.stringify(correctOrder) === JSON.stringify(userOrder);
 
         if (isCorrect) {
+            setIsFinalOrderCorrect(true);
             setFeedback({ text: "Perfect! You've ordered everything correctly.", type: 'success' });
             setTimeout(() => setStage('complete'), 1500);
         } else {
@@ -1000,6 +992,7 @@ const BookOrderGameScreen = ({ section, onBack }) => {
         setCategoryIndex(0);
         setCompletedCategories([]);
         setCategoryOrder([]);
+        setIsFinalOrderCorrect(false);
     }, []);
 
     if (stage === 'complete') {
@@ -1091,24 +1084,40 @@ const BookOrderGameScreen = ({ section, onBack }) => {
                     onDragOver: (e) => e.preventDefault(),
                     onDrop: (e) => handleDrop(e, 'categories')
                 },
-                    categoryOrder.map((cat, index) => e(React.Fragment, { key: cat.title },
-                         dragOverIndex === index && e('div', { className: 'h-1 w-full bg-sky-500 rounded' }),
-                         e('div', {
-                            'data-dnd-index': index, 'data-dnd-zone': 'categories',
-                            className: 'w-full p-4 bg-white dark:bg-slate-800 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 cursor-grab touch-none',
-                            draggable: true,
-                            onDragStart: (e) => handleDragStart(e, cat, 'categories', index),
-                            onTouchStart: (e) => handleDragStart(e, cat, 'categories', index),
-                            onDragEnd: handleDragEnd,
-                        },
-                            e('h3', { className: 'font-bold text-lg text-sky-700 dark:text-sky-300' }, cat.title),
-                            e('p', { className: 'text-sm text-slate-500 dark:text-slate-400 mt-1' }, cat.books.join(', '))
-                        )
-                    )),
-                    dragOverIndex === categoryOrder.length && e('div', { className: 'h-1 w-full bg-sky-500 rounded' })
+                    categoryOrder.map((cat, index) => {
+                        const isDraggable = !isFinalOrderCorrect;
+                        const categoryBoxClass = `w-full p-4 rounded-lg shadow-md transition-colors duration-500 ${
+                            isFinalOrderCorrect
+                                ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
+                                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                        } ${isDraggable ? 'cursor-grab touch-none' : ''}`;
+                        
+                        const titleClass = isFinalOrderCorrect
+                            ? 'font-bold text-lg text-green-800 dark:text-green-200'
+                            : 'font-bold text-lg text-sky-700 dark:text-sky-300';
+                        const booksClass = isFinalOrderCorrect
+                            ? 'text-sm text-green-700 dark:text-green-400 mt-1'
+                            : 'text-sm text-slate-500 dark:text-slate-400 mt-1';
+                        
+                        return e(React.Fragment, { key: cat.title },
+                             dragOverIndex === index && isDraggable && e('div', { className: 'h-1 w-full bg-sky-500 rounded' }),
+                             e('div', {
+                                'data-dnd-index': index, 'data-dnd-zone': 'categories',
+                                className: categoryBoxClass,
+                                draggable: isDraggable,
+                                onDragStart: isDraggable ? (e) => handleDragStart(e, cat, 'categories', index) : undefined,
+                                onTouchStart: isDraggable ? (e) => handleDragStart(e, cat, 'categories', index) : undefined,
+                                onDragEnd: handleDragEnd,
+                            },
+                                e('h3', { className: titleClass }, cat.title),
+                                e('p', { className: booksClass }, cat.books.join(', '))
+                            )
+                        );
+                    }),
+                    dragOverIndex === categoryOrder.length && !isFinalOrderCorrect && e('div', { className: 'h-1 w-full bg-sky-500 rounded' })
                 ),
                 e('div', { className: "mt-6 flex justify-center space-x-4" },
-                    e('button', { onClick: checkCategoryOrder, className: "px-8 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Check Final Order")
+                    e('button', { onClick: checkCategoryOrder, className: "px-8 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors", disabled: isFinalOrderCorrect }, "Check Final Order")
                 )
             )
         )
