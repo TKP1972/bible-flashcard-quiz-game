@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { homeScreenGames, flashcardDecks, bibleBookOrderData } from './data.js';
 import { QuizItemType } from './types.js';
@@ -19,7 +18,7 @@ const shuffleArray = (array) => {
   return shuffledArray;
 };
 
-// --- Custom Hook for Service Worker Updates ---
+// --- Custom Hooks ---
 const useServiceWorkerUpdater = () => {
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState(null);
@@ -65,6 +64,48 @@ const useServiceWorkerUpdater = () => {
   return { showUpdateNotification, handleUpdate };
 };
 
+const useTheme = () => {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        const savedTheme = window.localStorage.getItem('theme');
+        if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
+            return savedTheme;
+        }
+    }
+    return 'system';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    const isDark =
+      theme === 'dark' ||
+      (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    
+    root.classList.toggle('dark', isDark);
+    
+    if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('theme', theme);
+    }
+  }, [theme]);
+  
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const handleChange = () => {
+      if (theme === 'system') {
+        const root = window.document.documentElement;
+        root.classList.toggle('dark', mediaQuery.matches);
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme]);
+
+  return [theme, setTheme];
+};
+
+
 // --- Icon Components ---
 const ArrowLeftIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M10.8284 12.0007L15.7782 16.9504L14.364 18.3646L8 12.0007L14.364 5.63672L15.7782 7.05093L10.8284 12.0007Z" }));
 const ArrowRightIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M13.1717 12.0007L8.22192 7.05093L9.63614 5.63672L16.0001 12.0007L9.63614 18.3646L8.22192 16.9504L13.1717 12.0007Z" }));
@@ -75,6 +116,10 @@ const DownloadIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/200
 const ChevronDownIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M11.9997 13.1714L16.9495 8.22168L18.3637 9.63589L11.9997 15.9999L5.63574 9.63589L7.04996 8.22168L11.9997 13.1714Z" }));
 const GamepadIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M16.5 2.25C18.0525 2.25 19.3125 3.15 19.9125 4.5H22.5V11.25H18.0375C17.0625 11.25 16.125 10.725 15.525 9.825L14.4 7.875H9.6L8.475 9.825C7.875 10.725 6.9375 11.25 5.9625 11.25H1.5V4.5H4.0875C4.6875 3.15 5.9475 2.25 7.5 2.25H9V4.5H7.5V6H9V4.5H15V6H16.5V4.5H15V2.25H16.5ZM16.5 12.75H19.5V15.75H16.5V12.75ZM4.5 12.75H7.5V15.75H4.5V12.75ZM2.25 12.75H0V21.75H12V12.75H9.75V15.375C9.75 16.2 9.15 16.875 8.325 16.875H5.625C4.8 16.875 4.2 16.2 4.2 15.375V12.75H2.25Z" }));
 const BookOpenIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M12 2.25C9.075 2.25 6.75 4.575 6.75 7.5C6.75 9.9 8.25 11.85 10.5 12.525V21.75L12 20.25L13.5 21.75V12.525C15.75 11.85 17.25 9.9 17.25 7.5C17.25 4.575 14.925 2.25 12 2.25ZM12 3.75C14.1 3.75 15.75 5.4 15.75 7.5C15.75 9.6 14.1 11.25 12 11.25C9.9 11.25 8.25 9.6 8.25 7.5C8.25 5.4 9.9 3.75 12 3.75Z M4.5 6.75V21.75L6 20.25V6.75C5.475 6.75 4.95 6.75 4.5 6.75Z M19.5 6.75C19.05 6.75 18.525 6.75 18 6.75V20.25L19.5 21.75V6.75Z" }));
+const SunIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM20 11H23V13H20V11ZM1 11H4V13H1V11ZM16.9497 5.63604L19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604ZM5.63604 16.9497L3.51472 19.0711L4.92893 20.4853L7.05025 18.364L5.63604 16.9497Z"}));
+const MoonIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M10 7C10 9.76142 12.2386 12 15 12C16.4811 12 17.8225 11.3915 18.7831 10.4132C18.2713 12.4832 16.421 14 14 14C11.2386 14 9 11.7614 9 9C9 6.57901 10.5168 4.72873 12.5868 4.21693C11.6085 5.17754 11 6.51891 11 8C11 8.32174 11.0233 8.63821 11.0681 8.94711C10.5561 8.44873 10.1813 7.75519 10 7ZM12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2Z"}));
+const DesktopIcon = ({ className }) => e('svg', { xmlns: "http://www.w.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M21 15H3V3H21V15ZM21 1H3C1.89543 1 1 1.89543 1 3V15C1 16.1046 1.89543 17 3 17H8V21H10V19H14V21H16V17H21C22.1046 17 23 16.1046 23 15V3C23 1.89543 22.1046 1 21 1Z"}));
+
 
 const ICONS = {
     Gamepad: GamepadIcon,
@@ -1058,12 +1103,40 @@ const BookOrderGameScreen = ({ section, onBack }) => {
     );
 };
 
+const ThemeToggle = ({ theme, setTheme }) => {
+  const toggleTheme = useCallback(() => {
+    setTheme(current => {
+      if (current === 'light') return 'dark';
+      if (current === 'dark') return 'system';
+      return 'light';
+    });
+  }, [setTheme]);
+
+  const { Icon, label } = useMemo(() => {
+    if (theme === 'light') {
+      return { Icon: SunIcon, label: 'Switch to Dark Mode' };
+    }
+    if (theme === 'dark') {
+      return { Icon: MoonIcon, label: 'Switch to System Preference' };
+    }
+    return { Icon: DesktopIcon, label: 'Switch to Light Mode' };
+  }, [theme]);
+  
+  return e('button', {
+    onClick: toggleTheme,
+    className: "fixed bottom-4 left-4 z-50 p-3 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-full shadow-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500",
+    'aria-label': label,
+    title: label
+  }, e(Icon, { className: "w-6 h-6 text-slate-700 dark:text-slate-300" }));
+};
+
 
 // --- Main App Component ---
 export default function App() {
   const [view, setView] = useState({ name: 'home', topic: null });
   const [installPrompt, setInstallPrompt] = useState(null);
   const { showUpdateNotification, handleUpdate } = useServiceWorkerUpdater();
+  const [theme, setTheme] = useTheme();
 
   useEffect(() => {
     const handler = (e) => {
@@ -1152,6 +1225,7 @@ export default function App() {
   return e(ErrorBoundary, null,
     e('div', { className: 'relative min-h-screen' },
         renderScreen(),
+        e(ThemeToggle, { theme, setTheme }),
         showUpdateNotification && e('div', { className: "fixed bottom-4 right-4 z-50 animate-fade-in-up" },
             e('div', { className: "bg-slate-900 dark:bg-slate-200 text-white dark:text-slate-900 rounded-lg shadow-xl p-4 flex items-center space-x-4" },
                 e('p', { className: "font-medium" }, "A new version is available!"),
