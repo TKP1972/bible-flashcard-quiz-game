@@ -2,7 +2,7 @@ import { QuizItemType } from './types.js';
 
 const introductionToGodsWordSubGroups = [
     {
-        title: "Foundational Beliefs",
+        title: "God and the Bible",
         items: [
             {
                 id: 1,
@@ -519,27 +519,39 @@ export const flashcardDecks = [
     },
 ];
 
-export const homeScreenGames = [
+export const homeScreenLevels = [
     {
-        id: 'flashcards',
-        question: 'Flashcard Decks',
-        description: 'Study with classic question-and-answer flashcards.',
-        type: QuizItemType.FLASHCARD_MENU,
-        icon: 'BookOpen'
+        level: 1,
+        difficulty: 'Easiest',
+        game: {
+            id: 'match-scripture',
+            question: "Match the Scripture",
+            description: 'Start here! Match scriptures to their references to build a strong foundation.',
+            type: QuizItemType.MATCH_SCRIPTURE,
+            icon: 'Gamepad'
+        }
     },
     {
-        id: 'match-scripture',
-        question: "Match the Scripture",
-        description: 'Browse categories and match scriptures to their references.',
-        type: QuizItemType.MATCH_SCRIPTURE,
-        icon: 'Gamepad'
+        level: 2,
+        difficulty: 'Intermediate',
+        game: {
+            id: 'flashcards',
+            question: 'Flashcard Decks',
+            description: 'Level up your knowledge with classic question-and-answer flashcards.',
+            type: QuizItemType.FLASHCARD_MENU,
+            icon: 'BookOpen'
+        }
     },
     {
-        id: 'order-books',
-        question: 'Bible Book Order',
-        description: 'Arrange the Bible books in their canonical order.',
-        type: QuizItemType.ORDER_BOOKS,
-        icon: 'Gamepad'
+        level: 3,
+        difficulty: 'Advanced',
+        game: {
+            id: 'order-books',
+            question: 'Bible Book Order',
+            description: 'The ultimate challenge! Arrange the Bible books in their canonical order.',
+            type: QuizItemType.ORDER_BOOKS,
+            icon: 'Gamepad'
+        }
     }
 ];
 

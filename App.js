@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { homeScreenGames, flashcardDecks, bibleBookOrderData } from './data.js';
+import { homeScreenLevels, flashcardDecks, bibleBookOrderData } from './data.js';
 import { QuizItemType } from './types.js';
 
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
@@ -255,20 +255,28 @@ const HomeScreen = ({ onSelectGame, onInstall, canInstall, onShowInstructions, t
         ),
         e('main', { className: "p-4 space-y-8" },
             e('section', null,
-                e('h2', { className: "text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4 px-2" }, "Study & Game Modes"),
-                e('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" },
-                    homeScreenGames.map(game => {
+                e('h2', { className: "text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4 px-2" }, "Your Learning Path"),
+                e('div', { className: "space-y-4 max-w-2xl mx-auto" },
+                    homeScreenLevels.map((levelData, index) => {
+                        const { level, difficulty, game } = levelData;
                         const IconComponent = ICONS[game.icon] || GamepadIcon;
-                        return e('button', {
-                            key: game.id,
-                            onClick: () => onSelectGame(game),
-                            className: "p-6 bg-white dark:bg-slate-800 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all text-left group border border-slate-200 dark:border-slate-700"
-                        },
-                            e('div', { className: 'flex items-center mb-2' },
-                              e(IconComponent, { className: "w-6 h-6 text-sky-500 mr-3" }),
-                              e('h3', { className: "text-lg font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, game.question)
+                        return e(React.Fragment, { key: game.id },
+                            e('button', {
+                                onClick: () => onSelectGame(game),
+                                className: "w-full p-6 bg-white dark:bg-slate-800 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all text-left group border border-slate-200 dark:border-slate-700"
+                            },
+                                e('div', { className: 'flex justify-between items-start' },
+                                    e('div', null,
+                                        e('span', { className: 'px-2 py-1 text-xs font-semibold tracking-wider uppercase rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200' }, `Level ${level}: ${difficulty}`),
+                                        e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors mt-2" }, game.question)
+                                    ),
+                                    e(IconComponent, { className: "w-8 h-8 text-sky-500 flex-shrink-0 ml-4" })
+                                ),
+                                e('p', { className: "text-slate-600 dark:text-slate-400 mt-2" }, game.description)
                             ),
-                            e('p', { className: "text-slate-600 dark:text-slate-400" }, game.description)
+                            index < homeScreenLevels.length - 1 && e('div', { className: 'flex justify-center my-2' }, 
+                                e(ChevronDownIcon, { className: 'w-8 h-8 text-slate-300 dark:text-slate-600' })
+                            )
                         );
                     })
                 )
