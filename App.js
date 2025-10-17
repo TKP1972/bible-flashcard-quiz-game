@@ -917,14 +917,14 @@ const MinorProphetsMnemonic = () => {
       }, e('path', { d: 'M 0 0 L 10 5 L 0 10 z' }))
     ),
     e('path', {
-      d: `M ${habakkukCoords.x - 55} ${habakkukCoords.y} Q ${haggaiCoords.x + 30} ${((habakkukCoords.y + haggaiCoords.y) / 2) + 10} ${haggaiCoords.x - 48} ${haggaiCoords.y - 18}`,
+      d: `M ${habakkukCoords.x - 55} ${habakkukCoords.y} Q ${haggaiCoords.x + 30} ${((habakkukCoords.y + haggaiCoords.y) / 2) - 25} ${haggaiCoords.x - 35} ${haggaiCoords.y - 15}`,
       strokeWidth: '2',
       fill: 'none',
       markerEnd: 'url(#arrowhead)',
       className: 'stroke-slate-500 dark:stroke-slate-400'
     }),
     e('path', {
-      d: `M ${zephaniahCoords.x - 55} ${zephaniahCoords.y} Q ${zechariahCoords.x + 40} ${((zephaniahCoords.y + zechariahCoords.y) / 2) - 5} ${zechariahCoords.x - 60} ${zechariahCoords.y - 18}`,
+      d: `M ${zephaniahCoords.x - 55} ${zephaniahCoords.y} Q ${zechariahCoords.x + 40} ${((zephaniahCoords.y + zechariahCoords.y) / 2) - 25} ${zechariahCoords.x - 50} ${zechariahCoords.y - 15}`,
       strokeWidth: '2',
       fill: 'none',
       markerEnd: 'url(#arrowhead)',
