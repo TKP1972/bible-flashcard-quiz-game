@@ -917,14 +917,14 @@ const MinorProphetsMnemonic = () => {
       }, e('path', { d: 'M 0 0 L 10 5 L 0 10 z' }))
     ),
     e('path', {
-      d: `M ${habakkukCoords.x - 45} ${habakkukCoords.y} Q ${haggaiCoords.x + 40} ${((habakkukCoords.y + haggaiCoords.y) / 2) + 10} ${haggaiCoords.x - 30} ${haggaiCoords.y - 10}`,
+      d: `M ${habakkukCoords.x - 55} ${habakkukCoords.y} Q ${haggaiCoords.x + 30} ${((habakkukCoords.y + haggaiCoords.y) / 2) + 10} ${haggaiCoords.x - 48} ${haggaiCoords.y - 18}`,
       strokeWidth: '2',
       fill: 'none',
       markerEnd: 'url(#arrowhead)',
       className: 'stroke-slate-500 dark:stroke-slate-400'
     }),
     e('path', {
-      d: `M ${zephaniahCoords.x - 45} ${zephaniahCoords.y} Q ${zechariahCoords.x + 50} ${((zephaniahCoords.y + zechariahCoords.y) / 2) - 5} ${zechariahCoords.x - 45} ${zechariahCoords.y - 10}`,
+      d: `M ${zephaniahCoords.x - 55} ${zephaniahCoords.y} Q ${zechariahCoords.x + 40} ${((zephaniahCoords.y + zechariahCoords.y) / 2) - 5} ${zechariahCoords.x - 60} ${zechariahCoords.y - 18}`,
       strokeWidth: '2',
       fill: 'none',
       markerEnd: 'url(#arrowhead)',
@@ -957,7 +957,7 @@ const MinorProphetsMnemonic = () => {
 
 const mnemonicData = [
     { title: "The Pentateuch (5 books)", content: e('div', {className: "space-y-2"}, e('p', null, "Remember the story:"), e('ul', {className: "list-disc list-inside space-y-1 pl-2"}, e('li', null, e('strong', null, "Genesis"), " means Origin or Birth."), e('li', null, e('strong', null, "Exodus"), ": Jehovah leads the Israelites out of Egypt with a 'mighty hand' and an 'outstretched arm'"), e('li', null, e('strong', null, "Leviticus"), ": Jehovah organizes the Israelites into a theocratic nation with the Levitical priesthood"), e('li', null, e('strong', null, "Numbers"), ": The tribes of Israel are registered (Numbered) and organized into a three-tribe division"), e('li', null, e('strong', null, "Deuteronomy"), ": The final book of the Pentateuch."))) },
-    { title: "Historical Books (12 books)", content: e('div', {className: "space-y-2"}, e('p', null, "Follow the historical flow:"), e('ul', {className: "list-disc list-inside space-y-1 pl-2"}, e('li', null, "After Moses, ", e('strong', null, "Joshua"), " led them into the promised land."), e('li', null, "Next is the period of the ", e('strong', null, "Judges"), ", which includes the story of ", e('strong', null, "Ruth"), "."), e('li', null, "After the judges, Israel wanted a king. ", e('strong', null, "1 & 2 Samuel"), " tell of Samuel anointing the first kings, leading into the history of the monarchies in ", e('strong', null, "1 & 2 Kings"), "."), e('li', null, e('strong', null, "1 & 2 Chronicles"), " cover the period from the death of King Saul to the carrying away of exiles to Babylon, with a conclusion telling of Cyrus’ decree at the end of the 70-year exile. Then, the book of ", e('strong', null, "Ezra"), " is followed by ", e('strong', null, "Nehemiah"), " rebuilding Jerusalem’s wall. In the book of ", e('strong', null, "Esther"), ", Jehovah protects his people in Persia by Esther attaining queenship."))) },
+    { title: "Historical Books (12 books)", content: e('div', {className: "space-y-2"}, e('p', null, "Follow the historical flow:"), e('ul', {className: "list-disc list-inside space-y-1 pl-2"}, e('li', null, "After Moses, ", e('strong', null, "Joshua"), " led them into the promised land."), e('li', null, "Next is the period of the ", e('strong', null, "Judges"), ", which includes the story of ", e('strong', null, "Ruth"), "."), e('li', null, "After the judges, Israel wanted a king. ", e('strong', null, "1 & 2 Samuel"), " tell of Samuel anointing the first kings, leading into the history of the monarchies in ", e('strong', null, "1 & 2 Kings"), "."), e('li', null, e('strong', null, "1 & 2 Chronicles"), " cover the period from the death of King Saul to the carrying away of exiles to Babylon, with a conclusion telling of Cyrus’ decree at the end of the 70-year exile."), e('li', null, "The book of ", e('strong', null, "Ezra"), " is followed by ", e('strong', null, "Nehemiah"), " rebuilding Jerusalem’s wall."), e('li', null, "In the book of ", e('strong', null, "Esther"), ", Jehovah protects his people in Persia by Esther attaining queenship."))) },
     { 
         title: "Poetic Books (5 books)", 
         content: e('div', {className: "space-y-2"}, 
@@ -1455,7 +1455,7 @@ const ThemeToggle = ({ theme, setTheme }) => {
 
 // --- Main App Component ---
 export default function App() {
-  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('hasSeenWelcome'));
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('hasSeenWelcome_v4'));
   const [showInstructions, setShowInstructions] = useState(false);
   const [view, setView] = useState({ name: 'home', topic: null });
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -1483,7 +1483,7 @@ export default function App() {
 
   const handleInstructionsDismiss = () => {
     if (showWelcome) {
-        localStorage.setItem('hasSeenWelcome', 'true');
+        localStorage.setItem('hasSeenWelcome_v4', 'true');
         setShowWelcome(false);
     }
     setShowInstructions(false);
