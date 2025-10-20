@@ -142,7 +142,7 @@ const DragHandleIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2
   e('path', { d: "M17 19C17 20.1046 16.1046 21 15 21C13.8954 21 13 20.1046 13 19C13 17.8954 13.8954 17 15 17C16.1046 17 17 17.8954 17 19Z"}),
 );
 const QuestionMarkIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: 'M12,2C6.477,2,2,6.477,2,12s4.477,10,10,10s10-4.477,10-10S17.523,2,12,2z M12,17c-0.552,0-1-0.448-1-1v-4c0-0.552,0.448-1,1-1 s1,0.448,1,1v4C13,16.552,12.552,17,12,17z M12,9c-0.552,0-1-0.448-1-1s0.448-1,1-1s1,0.448,1,1S12.552,9,12,9z' }));
-
+const CheckCircleIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.29 16.29L5.7 12.7a.996.996 0 1 1 1.41-1.41L10 14.17l6.88-6.88a.996.996 0 1 1 1.41 1.41l-7.59 7.59a.996.996 0 0 1-1.41 0z" }));
 
 const ICONS = {
     Gamepad: GamepadIcon,
@@ -313,8 +313,16 @@ const HomeScreen = ({ onSelectGame, onInstall, canInstall, onShowInstructions, t
     );
 };
 
-const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle }) => {
-    const [openItems, setOpenItems] = useState(new Set());
+const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle, initialContext, completedItems }) => {
+    const [openItems, setOpenItems] = useState(() => {
+        if (initialContext && initialContext.groupTitle && initialContext.subGroupTitle) {
+            const newSet = new Set();
+            newSet.add(initialContext.groupTitle);
+            newSet.add(`${initialContext.groupTitle}-${initialContext.subGroupTitle}`);
+            return newSet;
+        }
+        return new Set();
+    });
 
     const toggleOpen = (key) => {
         setOpenItems(prev => {
@@ -361,10 +369,24 @@ const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle }) => {
                                         ),
                                         e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isSubGroupOpen ? 'max-h-[2000px]' : 'max-h-0'}` },
                                             e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
-                                                subGroup.items.map(item => e('button', { key: item.id, onClick: () => onSelectTopic(item), className: "p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border border-slate-200 dark:border-slate-700" },
-                                                    e('p', { className: "text-sm font-semibold text-sky-600 dark:text-sky-400" }, item.type),
-                                                    e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question)
-                                                ))
+                                                subGroup.items.map(item => {
+                                                    const isCompleted = completedItems.has(item.id);
+                                                    const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
+                                                    
+                                                    return e('button', { 
+                                                        key: item.id, 
+                                                        onClick: () => onSelectTopic(item, { groupTitle: group.title, subGroupTitle: subGroup.title }), 
+                                                        className: buttonClass
+                                                    },
+                                                        e('div', {className: "flex justify-between items-start"},
+                                                          e('div', null,
+                                                            e('p', { className: "text-sm font-semibold text-sky-600 dark:text-sky-400" }, item.type),
+                                                            e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question)
+                                                          ),
+                                                          isCompleted && e(CheckCircleIcon, { className: "w-6 h-6 text-green-500 flex-shrink-0 ml-2" })
+                                                        )
+                                                    )
+                                                })
                                             )
                                         )
                                     );
@@ -378,10 +400,18 @@ const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle }) => {
     );
 };
 
-const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle }) => {
-    const [openItems, setOpenItems] = useState(new Set());
+const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle, completedItems, initialContext }) => {
+    const [openItems, setOpenItems] = useState(() => {
+        if (initialContext && initialContext.groupTitle && initialContext.subGroupTitle) {
+            const newSet = new Set();
+            newSet.add(initialContext.groupTitle);
+            newSet.add(`${initialContext.groupTitle}-${initialContext.subGroupTitle}`);
+            return newSet;
+        }
+        return new Set();
+    });
 
-    const handleSelect = (item) => {
+    const handleSelect = (item, groupTitle, subGroupTitle) => {
         let pairs = [];
         if (item.type === QuizItemType.QA && item.answers) {
             item.answers.forEach(answer => {
@@ -400,7 +430,7 @@ const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle }) => 
                 question: `Match: ${item.question}`,
                 type: QuizItemType.MATCH_SCRIPTURE,
                 pairs: pairs
-            });
+            }, { groupTitle, subGroupTitle });
         } else {
             alert("This category has no scriptures to match.");
         }
@@ -446,13 +476,21 @@ const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle }) => 
                                         ),
                                         e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isSubGroupOpen ? 'max-h-[2000px]' : 'max-h-0'}` },
                                             e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
-                                                subGroup.items.map(item => e('button', { 
-                                                    key: item.id, 
-                                                    onClick: () => handleSelect(item), 
-                                                    className: "p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border border-slate-200 dark:border-slate-700" 
-                                                },
-                                                    e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question)
-                                                ))
+                                                subGroup.items.map(item => {
+                                                    const isCompleted = completedItems.has(item.id);
+                                                    const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
+
+                                                    return e('button', { 
+                                                        key: item.id, 
+                                                        onClick: () => handleSelect(item, group.title, subGroup.title), 
+                                                        className: buttonClass
+                                                    },
+                                                        e('div', { className: "flex justify-between items-start" },
+                                                            e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question),
+                                                            isCompleted && e(CheckCircleIcon, { className: "w-6 h-6 text-green-500 flex-shrink-0 ml-2" })
+                                                        )
+                                                    );
+                                                })
                                             )
                                         )
                                     );
@@ -496,22 +534,31 @@ const ScriptureTextOnly = ({ scriptures }) => e('div', { className: "space-y-4" 
     ))
 );
 
-const GameScreen = ({ topic, onBack, themeToggle }) => {
+const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isReversed, setIsReversed] = useState(false);
   const [gameItems, setGameItems] = useState([]);
+  const hasCompleted = useRef(false);
 
-    useEffect(() => {
-        let items = [];
-        if (topic.type === QuizItemType.QA) items = topic.answers;
-        else if (topic.type === QuizItemType.PROPHECY) items = topic.pairs;
-        else items = [topic];
-        setGameItems(items);
-        setCurrentIndex(0);
-        setIsFlipped(false);
-        setIsReversed(false);
-    }, [topic]);
+  useEffect(() => {
+    hasCompleted.current = false;
+    let items = [];
+    if (topic.type === QuizItemType.QA) items = topic.answers;
+    else if (topic.type === QuizItemType.PROPHECY) items = topic.pairs;
+    else items = [topic];
+    setGameItems(items);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    setIsReversed(false);
+  }, [topic]);
+  
+  useEffect(() => {
+    if (!hasCompleted.current && gameItems.length > 0 && currentIndex === gameItems.length - 1) {
+        onComplete(topic.id);
+        hasCompleted.current = true;
+    }
+  }, [currentIndex, gameItems.length, onComplete, topic.id]);
 
     const handleShuffle = useCallback(() => {
         setGameItems(shuffleArray(gameItems));
@@ -560,13 +607,15 @@ const GameScreen = ({ topic, onBack, themeToggle }) => {
         switch (topic.type) {
             case QuizItemType.QA:
                 if (!currentItem) return null;
-                if (isReversed) return e(ScriptureTextOnly, { scriptures: [currentItem] });
-                return e('div', { className: "flex items-center justify-center h-full" }, e(CenteredScriptureList, { scriptures: [currentItem] }));
+                const scriptureWithKeyPhrase = { ...currentItem, text: currentItem.keyPhrase };
+                if (isReversed) return e(ScriptureTextOnly, { scriptures: [scriptureWithKeyPhrase] });
+                return e('div', { className: "flex items-center justify-center h-full" }, e(CenteredScriptureList, { scriptures: [scriptureWithKeyPhrase] }));
             case QuizItemType.PROPHECY:
                  if (!currentItem) return null;
+                const fulfillmentWithKeyPhrase = { ...currentItem.fulfillment, text: currentItem.fulfillment.keyPhrase };
                 return e('div', { className: "text-center flex flex-col justify-center h-full" },
                     e('p', { className: "text-base font-bold text-green-600 dark:text-green-400 mb-4" }, "FULFILLMENT"),
-                    e(CenteredScriptureList, { scriptures: [currentItem.fulfillment] })
+                    e(CenteredScriptureList, { scriptures: [fulfillmentWithKeyPhrase] })
                 );
             case QuizItemType.BOOKS:
                 return e('div', { className: "space-y-6 text-center" },
@@ -629,7 +678,7 @@ const GameScreen = ({ topic, onBack, themeToggle }) => {
 };
 
 // --- Book Quiz Screen Component ---
-const QuizScreen = ({ topic, onBack, themeToggle }) => {
+const QuizScreen = ({ topic, onBack, themeToggle, onComplete }) => {
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -654,6 +703,7 @@ const QuizScreen = ({ topic, onBack, themeToggle }) => {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
     } else {
+      onComplete(topic.id);
       setQuizFinished(true);
     }
   };
@@ -728,7 +778,7 @@ const QuizScreen = ({ topic, onBack, themeToggle }) => {
 };
 
 // --- Matching Game Screen Component ---
-const MatchingGameScreen = ({ topic, onBack, themeToggle }) => {
+const MatchingGameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
     const [columnA, setColumnA] = useState([]);
     const [columnB, setColumnB] = useState([]);
     const [selectedA, setSelectedA] = useState(null);
@@ -794,9 +844,10 @@ const MatchingGameScreen = ({ topic, onBack, themeToggle }) => {
     
     useEffect(() => {
         if (matchedPairs.size > 0 && matchedPairs.size === topic.pairs.length) {
+            onComplete(topic.id);
             setIsComplete(true);
         }
-    }, [matchedPairs, topic.pairs.length]);
+    }, [matchedPairs, topic.pairs.length, onComplete, topic.id]);
 
 
     if (isComplete) {
@@ -995,18 +1046,40 @@ const mnemonicData = [
             )
         )
     ) },
-    { 
-        title: "Christian Greek Scriptures (27 books)", 
-        content: e('div', { className: 'space-y-4' },
-            e('p', null, "Memorizing books by category is much easier than learning them all at once."),
-            e('ul', { className: 'list-disc list-inside space-y-1 pl-2 font-semibold text-slate-700 dark:text-slate-300' },
-                e('li', null, "The Four Gospels"),
-                e('li', null, "Acts of Apostles"),
-                e('li',null, "Paul's 14 Letters"),
-                e('li', null, "General Letters"),
-                e('li', null, "Revelation")
+    {
+        title: "The Four Gospels & Acts",
+        content: e('div', {className: "space-y-2"},
+            e('p', null, "These first five books are historical narratives:"),
+            e('ul', {className: "list-disc list-inside space-y-1 pl-2"},
+                e('li', null, e('strong', null, "Matthew, Mark, Luke, John:"), " The four accounts of Jesus' life and ministry."),
+                e('li', null, e('strong', null, "Acts:"), " Follows the Gospels, documenting the history of the early Christian congregation.")
             )
-        ) 
+        )
+    },
+    {
+        title: "Paul's 14 Letters",
+        content: e('div', {className: "space-y-2"},
+            e('p', null, "Paul's letters can be remembered by following this logical flow:"),
+            e('ul', {className: "list-disc list-inside space-y-1 pl-2"},
+                e('li', null, "It starts with ", e('strong', null, "Romans"), ". Paul, an apostle to the nations, had Roman citizenship."),
+                e('li', null, "Next are all letters to congregations ending in '", e('strong', null, "ians"), "': 1 & 2 Corinthians, Galatians, Ephesians, Philippians, Colossians, 1 & 2 Thessalonians."),
+                e('li', null, "Then, letters to ", e('strong', null, "Timothy"), " (1 & 2) and ", e('strong', null, "Titus"), ", regarding spiritual requirements for privileges of service."),
+                e('li', null, "A personal appeal to ", e('strong', null, "Philemon"), " on the basis of love to take back his runaway slave, who had become a Christian."),
+                e('li', null, "He ends with a letter to the ", e('strong', null, "Hebrew"), " Christians in Jerusalem and Judea.")
+            )
+        )
+    },
+    {
+        title: "General Letters & Revelation",
+        content: e('div', {className: "space-y-2"},
+            e('ul', {className: "list-disc list-inside space-y-1 pl-2"},
+                e('li', null, e('strong', null, "James")),
+                e('li', null, e('strong', null, "1 & 2 Peter")),
+                e('li', null, e('strong', null, "1, 2, & 3 John")),
+                e('li', null, e('strong', null, "Jude")),
+                e('li', {className: "mt-2"}, "The final book of the Bible is ", e('strong', null, "Revelation"), ".")
+            )
+        )
     }
 ];
 
@@ -1040,20 +1113,28 @@ const BookOrderPracticeScreen = ({ onBack, themeToggle }) => {
     );
 };
 
-const BookOrderChallengeScreen = ({ onSelectSection, onBack, themeToggle }) => {
+const BookOrderChallengeScreen = ({ onSelectSection, onBack, themeToggle, completedItems }) => {
     return e('div', { className: "flex flex-col h-screen" },
         e(Header, { onBack, title: "Bible Book Order Challenge" }, themeToggle),
         e('main', { className: "p-4 flex-grow flex items-center justify-center" },
             e('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl" },
                 bibleBookOrderData.map(section => {
                     const bookCount = section.categories.flatMap(c => c.books).length;
+                    const isCompleted = completedItems.has(section.id);
+                    const buttonClass = `p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
+
                     return e('button', {
                         key: section.sectionTitle,
                         onClick: () => onSelectSection(section),
-                        className: "p-6 bg-white dark:bg-slate-800 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all text-left group border border-slate-200 dark:border-slate-700"
+                        className: buttonClass
                     },
-                        e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, section.sectionTitle),
-                        e('p', { className: "text-md text-slate-500 dark:text-slate-400 mt-1" }, `${bookCount} books`)
+                      e('div', {className: 'flex justify-between items-start'},
+                        e('div', null, 
+                          e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, section.sectionTitle),
+                          e('p', { className: "text-md text-slate-500 dark:text-slate-400 mt-1" }, `${bookCount} books`)
+                        ),
+                        isCompleted && e(CheckCircleIcon, { className: "w-8 h-8 text-green-500 flex-shrink-0 ml-2" })
+                      )
                     )
                 })
             )
@@ -1061,7 +1142,7 @@ const BookOrderChallengeScreen = ({ onSelectSection, onBack, themeToggle }) => {
     );
 };
 
-const BookOrderGameScreen = ({ section, onBack, themeToggle }) => {
+const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
     const [stage, setStage] = useState('books'); // 'books', 'categories', 'complete'
     const [categoryIndex, setCategoryIndex] = useState(0);
     const [completedCategories, setCompletedCategories] = useState([]);
@@ -1078,6 +1159,11 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle }) => {
     const dragOverItem = useRef(null);
     const [dragOverIndex, setDragOverIndex] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
+    const hasCompleted = useRef(false);
+
+    useEffect(() => {
+        hasCompleted.current = false;
+    }, [section.id]);
 
     const currentCategory = useMemo(() => section.categories[categoryIndex], [section, categoryIndex]);
 
@@ -1139,6 +1225,10 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle }) => {
         const isCorrect = JSON.stringify(correctOrder) === JSON.stringify(userOrder);
 
         if (isCorrect) {
+            if (!hasCompleted.current) {
+                onComplete(section.id);
+                hasCompleted.current = true;
+            }
             setIsFinalOrderCorrect(true);
             setFeedback({ text: "Perfect! You've ordered everything correctly.", type: 'success' });
             setTimeout(() => setStage('complete'), 1500);
@@ -1469,6 +1559,25 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const { showUpdateNotification, handleUpdate } = useServiceWorkerUpdater();
   const [theme, setTheme] = useTheme();
+  const [completedItems, setCompletedItems] = useState(() => new Set());
+
+  useEffect(() => {
+    const storedCompleted = localStorage.getItem('completedItems_v1');
+    if (storedCompleted) {
+        setCompletedItems(new Set(JSON.parse(storedCompleted)));
+    }
+  }, []);
+
+  const markAsComplete = useCallback((itemId) => {
+    if (!itemId) return;
+    setCompletedItems(prev => {
+        if (prev.has(itemId)) return prev;
+        const newSet = new Set(prev);
+        newSet.add(itemId);
+        localStorage.setItem('completedItems_v1', JSON.stringify(Array.from(newSet)));
+        return newSet;
+    });
+  }, []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -1517,17 +1626,17 @@ export default function App() {
     setView({ name: 'bookOrderGame', topic: section });
   };
 
-  const handleSelectTopic = (topic) => {
-    setView({ name: 'game', topic: topic });
+  const handleSelectTopic = (topic, context) => {
+    setView({ name: 'game', topic: topic, context: context });
   };
   
   const handleBack = () => {
-    const { name, topic } = view;
+    const { name, topic, context } = view;
     if (name === 'game') {
         if (topic.type === QuizItemType.MATCH_SCRIPTURE) {
-            setView({ name: 'scriptureMatchingMenu' });
+            setView({ name: 'scriptureMatchingMenu', context: context });
         } else {
-            setView({ name: 'flashcards' });
+            setView({ name: 'flashcards', context: context });
         }
     } else if (name === 'flashcards' || name === 'scriptureMatchingMenu' || name === 'bookOrderStart') {
         setView({ name: 'home' });
@@ -1540,15 +1649,15 @@ export default function App() {
 
   const renderScreen = () => {
     const themeToggle = e(ThemeToggle, { theme, setTheme });
-    const props = { onBack: handleBack, themeToggle };
+    const props = { onBack: handleBack, themeToggle, onComplete: markAsComplete, completedItems };
 
     switch (view.name) {
       case 'home':
         return e(HomeScreen, { onSelectGame: handleSelectGame, onInstall: handleInstallClick, canInstall: !!installPrompt, onShowInstructions: handleShowInstructions, themeToggle });
       case 'flashcards':
-        return e(FlashcardsMenuScreen, { ...props, onSelectTopic: handleSelectTopic });
+        return e(FlashcardsMenuScreen, { ...props, onSelectTopic: handleSelectTopic, initialContext: view.context });
       case 'scriptureMatchingMenu':
-        return e(ScriptureMatchingMenuScreen, { ...props, onSelectTopic: handleSelectTopic });
+        return e(ScriptureMatchingMenuScreen, { ...props, onSelectTopic: handleSelectTopic, initialContext: view.context });
       case 'bookOrderStart':
         return e(BookOrderStartScreen, {
             ...props,
