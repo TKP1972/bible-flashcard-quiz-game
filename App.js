@@ -152,14 +152,14 @@ const ICONS = {
 const InstructionsScreen = ({ onDismiss, isInitialWelcome }) => {
   const instructions = [
     {
-      icon: 'BookOpen',
-      title: 'Flashcard Decks',
-      text: 'Select a category to study. Flip the cards to reveal the answer. Use the shuffle and reverse mode buttons for an extra challenge.'
-    },
-    {
       icon: 'Gamepad',
       title: 'Match the Scripture',
-      text: 'Pick a topic, then match the scripture reference on the left with its corresponding text on the right. A correct match will turn green!'
+      text: 'Start here to learn the material. Pick a topic, then match the scripture reference on the left with its corresponding text on the right. A correct match will turn green!'
+    },
+    {
+      icon: 'BookOpen',
+      title: 'Flashcard Decks',
+      text: 'When you are confident with a section from the matching game, move on to flashcards to test your memory. Select a category to study, flip the cards, and use shuffle/reverse modes for an extra challenge.'
     },
     {
       icon: 'Gamepad',
@@ -370,7 +370,7 @@ const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle, initialConte
                                         e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isSubGroupOpen ? 'max-h-[2000px]' : 'max-h-0'}` },
                                             e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
                                                 subGroup.items.map(item => {
-                                                    const isCompleted = completedItems.has(item.id);
+                                                    const isCompleted = completedItems.has(`flashcards-${item.id}`);
                                                     const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
                                                     
                                                     return e('button', { 
@@ -477,7 +477,7 @@ const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle, compl
                                         e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isSubGroupOpen ? 'max-h-[2000px]' : 'max-h-0'}` },
                                             e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
                                                 subGroup.items.map(item => {
-                                                    const isCompleted = completedItems.has(item.id);
+                                                    const isCompleted = completedItems.has(`match-scripture-${item.id}`);
                                                     const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
 
                                                     return e('button', { 
@@ -1120,7 +1120,7 @@ const BookOrderChallengeScreen = ({ onSelectSection, onBack, themeToggle, comple
             e('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl" },
                 bibleBookOrderData.map(section => {
                     const bookCount = section.categories.flatMap(c => c.books).length;
-                    const isCompleted = completedItems.has(section.id);
+                    const isCompleted = completedItems.has(`order-books-${section.id}`);
                     const buttonClass = `p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
 
                     return e('button', {
@@ -1562,19 +1562,20 @@ export default function App() {
   const [completedItems, setCompletedItems] = useState(() => new Set());
 
   useEffect(() => {
-    const storedCompleted = localStorage.getItem('completedItems_v1');
+    const storedCompleted = localStorage.getItem('completedItems_v2');
     if (storedCompleted) {
         setCompletedItems(new Set(JSON.parse(storedCompleted)));
     }
   }, []);
 
-  const markAsComplete = useCallback((itemId) => {
-    if (!itemId) return;
+  const markAsComplete = useCallback((gameMode, itemId) => {
+    if (!gameMode || !itemId) return;
+    const completionKey = `${gameMode}-${itemId}`;
     setCompletedItems(prev => {
-        if (prev.has(itemId)) return prev;
+        if (prev.has(completionKey)) return prev;
         const newSet = new Set(prev);
-        newSet.add(itemId);
-        localStorage.setItem('completedItems_v1', JSON.stringify(Array.from(newSet)));
+        newSet.add(completionKey);
+        localStorage.setItem('completedItems_v2', JSON.stringify(Array.from(newSet)));
         return newSet;
     });
   }, []);
@@ -1649,33 +1650,41 @@ export default function App() {
 
   const renderScreen = () => {
     const themeToggle = e(ThemeToggle, { theme, setTheme });
-    const props = { onBack: handleBack, themeToggle, onComplete: markAsComplete, completedItems };
+    const baseProps = { onBack: handleBack, themeToggle, completedItems };
 
     switch (view.name) {
       case 'home':
         return e(HomeScreen, { onSelectGame: handleSelectGame, onInstall: handleInstallClick, canInstall: !!installPrompt, onShowInstructions: handleShowInstructions, themeToggle });
       case 'flashcards':
-        return e(FlashcardsMenuScreen, { ...props, onSelectTopic: handleSelectTopic, initialContext: view.context });
+        return e(FlashcardsMenuScreen, { ...baseProps, onSelectTopic: handleSelectTopic, initialContext: view.context });
       case 'scriptureMatchingMenu':
-        return e(ScriptureMatchingMenuScreen, { ...props, onSelectTopic: handleSelectTopic, initialContext: view.context });
+        return e(ScriptureMatchingMenuScreen, { ...baseProps, onSelectTopic: handleSelectTopic, initialContext: view.context });
       case 'bookOrderStart':
         return e(BookOrderStartScreen, {
-            ...props,
+            ...baseProps,
             onPractice: () => setView({ name: 'bookOrderPractice' }),
             onStart: () => setView({ name: 'bookOrderChallenge' })
         });
       case 'bookOrderPractice':
-        return e(BookOrderPracticeScreen, { ...props });
+        return e(BookOrderPracticeScreen, { ...baseProps });
       case 'bookOrderChallenge':
-        return e(BookOrderChallengeScreen, { ...props, onSelectSection: handleSelectBookOrderSection });
+        return e(BookOrderChallengeScreen, { ...baseProps, onSelectSection: handleSelectBookOrderSection });
       case 'bookOrderGame':
         return e(BookOrderGameScreen, { 
-            ...props,
+            ...baseProps,
             section: view.topic,
+            onComplete: (itemId) => markAsComplete('order-books', itemId)
         });
       case 'game':
         if (!view.topic) return e(HomeScreen, { onSelectGame: handleSelectGame, themeToggle }); // Fallback
-        const gameProps = { ...props, topic: view.topic };
+        
+        const gameMode = view.topic.type === QuizItemType.MATCH_SCRIPTURE ? 'match-scripture' : 'flashcards';
+        const gameProps = { 
+            ...baseProps, 
+            topic: view.topic,
+            onComplete: (itemId) => markAsComplete(gameMode, itemId) 
+        };
+
         switch (view.topic.type) {
           case QuizItemType.BOOK_QUIZ:
             return e(QuizScreen, gameProps);
