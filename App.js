@@ -227,53 +227,59 @@ const Confetti = React.memo(({ count = 200 }) => {
   const [particles, setParticles] = useState([]);
 
   const playConfettiSound = useCallback(() => {
+    if (!window.appAudioContext) {
+        window.appAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
     const audioContext = window.appAudioContext;
-    // The global unlock handler should have set the state to 'running'.
-    // If not, it's unlikely we can recover here, so we just check and exit.
-    if (!audioContext || audioContext.state !== 'running') {
-      console.warn(`AudioContext not ready, sound aborted. State: ${audioContext?.state}`);
-      return;
+    if (!audioContext) return;
+
+    const playSound = () => {
+        const now = audioContext.currentTime;
+
+        // Low-frequency boom for the "oomph"
+        const boomOsc = audioContext.createOscillator();
+        boomOsc.type = 'sine';
+        boomOsc.frequency.setValueAtTime(100, now); // Start freq
+        boomOsc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); // Pitch drop
+
+        const boomGain = audioContext.createGain();
+        boomGain.gain.setValueAtTime(0.5, now); // Initial volume
+        boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        boomOsc.connect(boomGain);
+        boomGain.connect(audioContext.destination);
+
+        // Noise burst for the "crackle"
+        const noiseDuration = 0.5;
+        const bufferSize = audioContext.sampleRate * noiseDuration;
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const output = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1; // White noise
+        }
+
+        const noiseSource = audioContext.createBufferSource();
+        noiseSource.buffer = buffer;
+
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0.25, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
+
+        noiseSource.connect(noiseGain);
+        noiseGain.connect(audioContext.destination);
+
+        // Start and stop sounds
+        boomOsc.start(now);
+        boomOsc.stop(now + 0.4);
+        noiseSource.start(now);
+        noiseSource.stop(now + noiseDuration);
+    };
+
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().then(playSound).catch(err => console.error("Could not resume audio context for confetti sound:", err));
+    } else {
+        playSound();
     }
-
-    const now = audioContext.currentTime;
-
-    // Low-frequency boom for the "oomph"
-    const boomOsc = audioContext.createOscillator();
-    boomOsc.type = 'sine';
-    boomOsc.frequency.setValueAtTime(100, now); // Start freq
-    boomOsc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); // Pitch drop
-
-    const boomGain = audioContext.createGain();
-    boomGain.gain.setValueAtTime(0.5, now); // Initial volume
-    boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-
-    boomOsc.connect(boomGain);
-    boomGain.connect(audioContext.destination);
-
-    // Noise burst for the "crackle"
-    const noiseDuration = 0.5;
-    const bufferSize = audioContext.sampleRate * noiseDuration;
-    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1; // White noise
-    }
-
-    const noiseSource = audioContext.createBufferSource();
-    noiseSource.buffer = buffer;
-
-    const noiseGain = audioContext.createGain();
-    noiseGain.gain.setValueAtTime(0.25, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
-
-    noiseSource.connect(noiseGain);
-    noiseGain.connect(audioContext.destination);
-
-    // Start and stop sounds
-    boomOsc.start(now);
-    boomOsc.stop(now + 0.4);
-    noiseSource.start(now);
-    noiseSource.stop(now + noiseDuration);
   }, []);
   
   useEffect(() => {
@@ -1042,243 +1048,683 @@ const MinorProphetsMnemonic = () => {
     "Nahum", "Habakkuk", "Zephaniah",
     "Haggai", "Zechariah", "Malachi"
   ];
-  const mnemonic = "He Just Ate Overly Juicy Meat, Now He's Zesty, He's Zesty Man!";
+  const width = 500;
+  const height = 400;
+  const cols = 3;
+  const rows = 4;
+  const cellWidth = 150;
+  const cellHeight = 80;
+  const xPadding = (width - cols * cellWidth) / 2;
+  const yPadding = (height - rows * cellHeight) / 2;
 
-  return e('div', { className: 'p-4 bg-sky-50 dark:bg-sky-900/40 rounded-lg' },
-    e('h4', { className: 'text-lg font-bold text-sky-800 dark:text-sky-300 mb-2' }, 'Mnemonic for the 12 "Minor" Prophets'),
-    e('p', { className: 'italic font-serif text-xl mb-4' }, `"${mnemonic}"`),
-    e('div', { className: 'grid grid-cols-3 gap-2 text-sm' },
-      books.map((book, i) => e('p', { key: book, className: 'flex items-center' }, 
-        e('span', { className: 'font-bold text-sky-600 dark:text-sky-400 w-2 mr-2' }, `${book[0]}.`),
-        e('span', null, book)
-      ))
-    )
+  const getCellCoords = (index) => {
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    return {
+      x: xPadding + col * cellWidth + cellWidth / 2,
+      y: yPadding + row * cellHeight + cellHeight / 2
+    };
+  };
+
+  const habakkukCoords = getCellCoords(7); // Habakkuk
+  const haggaiCoords = getCellCoords(9); // Haggai
+  const zephaniahCoords = getCellCoords(8); // Zephaniah
+  const zechariahCoords = getCellCoords(10); // Zechariah
+
+  return e('svg', { viewBox: `0 0 ${width} ${height}`, className: 'w-full h-auto bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700' },
+    e('defs', null,
+      e('marker', {
+        id: 'arrowhead',
+        viewBox: '0 0 10 10',
+        refX: '8',
+        refY: '5',
+        markerWidth: '6',
+        markerHeight: '6',
+        orient: 'auto-start-reverse',
+        className: 'fill-slate-500 dark:fill-slate-400'
+      }, e('path', { d: 'M 0 0 L 10 5 L 0 10 z' }))
+    ),
+    e('path', {
+      d: `M ${habakkukCoords.x - 55} ${habakkukCoords.y} Q ${haggaiCoords.x + 30} ${((habakkukCoords.y + haggaiCoords.y) / 2) - 25} ${haggaiCoords.x - 35} ${haggaiCoords.y - 15}`,
+      strokeWidth: '2',
+      fill: 'none',
+      markerEnd: 'url(#arrowhead)',
+      className: 'stroke-slate-500 dark:stroke-slate-400'
+    }),
+    e('path', {
+      d: `M ${zephaniahCoords.x - 55} ${zephaniahCoords.y} Q ${zechariahCoords.x + 40} ${((zephaniahCoords.y + zechariahCoords.y) / 2) - 25} ${zechariahCoords.x - 50} ${zechariahCoords.y - 15}`,
+      strokeWidth: '2',
+      fill: 'none',
+      markerEnd: 'url(#arrowhead)',
+      className: 'stroke-slate-500 dark:stroke-slate-400'
+    }),
+    books.map((book, index) => {
+      const { x, y } = getCellCoords(index);
+      const col = index % cols;
+      const isHONH = col === 0;
+      const isJ = book === 'Joel' || book === 'Jonah';
+      const endsWithAh = book === 'Obadiah' || book === 'Jonah' || book === 'Micah';
+      const isSpecialConnection = book === 'Habakkuk' || book === 'Haggai' || book === 'Zephaniah' || book === 'Zechariah';
+
+      return e('text', {
+        key: book, x, y,
+        fontFamily: "Inter, sans-serif",
+        fontSize: "18",
+        fontWeight: "600",
+        textAnchor: "middle",
+        dominantBaseline: "central",
+        className: "fill-slate-800 dark:fill-slate-200"
+      },
+        e('tspan', { className: (isHONH || isJ || isSpecialConnection) ? 'fill-sky-600 dark:fill-sky-400 font-bold' : '' }, book.charAt(0)),
+        e('tspan', null, book.substring(1, book.length - (endsWithAh ? 2 : 0))),
+        endsWithAh ? e('tspan', { className: 'fill-sky-600 dark:fill-sky-400 font-bold' }, 'ah') : null
+      );
+    })
   );
 };
 
+const mnemonicData = [
+    { title: "The Pentateuch (5 books)", content: e('div', {className: "space-y-2"}, e('p', null, "Remember the story:"), e('ul', {className: "list-disc list-inside space-y-1 pl-2"}, e('li', null, e('strong', null, "Genesis"), " means Origin or Birth."), e('li', null, e('strong', null, "Exodus"), ": Jehovah leads the Israelites out of Egypt with a 'mighty hand' and an 'outstretched arm'"), e('li', null, e('strong', null, "Leviticus"), ": Jehovah organizes the Israelites into a theocratic nation with the Levitical priesthood"), e('li', null, e('strong', null, "Numbers"), ": The tribes of Israel are registered (Numbered) and organized into a three-tribe division"), e('li', null, e('strong', null, "Deuteronomy"), ": The final book of the Pentateuch."))) },
+    { title: "Historical Books (12 books)", content: e('div', {className: "space-y-2"}, e('p', null, "Follow the historical flow:"), e('ul', {className: "list-disc list-inside space-y-1 pl-2"}, e('li', null, "After Moses, ", e('strong', null, "Joshua"), " led them into the promised land."), e('li', null, "Next is the period of the ", e('strong', null, "Judges"), ", which includes the story of ", e('strong', null, "Ruth"), "."), e('li', null, "After the judges, Israel wanted a king. ", e('strong', null, "1 & 2 Samuel"), " tell of Samuel anointing the first kings, leading into the history of the monarchies in ", e('strong', null, "1 & 2 Kings"), "."), e('li', null, e('strong', null, "1 & 2 Chronicles"), " cover the period from the death of King Saul to the carrying away of exiles to Babylon, with a conclusion telling of Cyrus’ decree at the end of the 70-year exile."), e('li', null, "The book of ", e('strong', null, "Ezra"), " is followed by ", e('strong', null, "Nehemiah"), " rebuilding Jerusalem’s wall."), e('li', null, "In the book of ", e('strong', null, "Esther"), ", Jehovah protects his people in Persia by Esther attaining queenship."))) },
+    { 
+        title: "Poetic Books (5 books)", 
+        content: e('div', {className: "space-y-2"}, 
+            e('p', null, "A simple way to remember this section:"), 
+            e('ul', {className: "list-disc list-inside space-y-1 pl-2"}, 
+                e('li', null, 
+                    "Think of ", e('strong', null, "Psalms"), " as being 'sandwiched' by ", e('strong', null, "Job"), " before it and ", e('strong', null, "Proverbs"), " after it."
+                ), 
+                e('li', null, 
+                    "The final two books are ", e('strong', null, "Ecclesiastes"), " and ", e('strong', null, "Song of Solomon"), "."
+                )
+            )
+        ) 
+    },
+    { title: '"Major" Prophets (5 books)', content: e('p', null, "These five books can be memorized in order: Isaiah, Jeremiah, Lamentations, Ezekiel, Daniel.") },
+    { title: '"Minor" Prophets (12 books)', content: e('div', { className: 'space-y-4' },
+        e('p', {className: "text-sm text-slate-600 dark:text-slate-400"}, "This diagram uses color and connections to highlight patterns in the book order. Here's what to look for:"),
+        e('div', { className: 'max-w-md mx-auto' }, e(MinorProphetsMnemonic)),
+        e('div', {className: "space-y-2 text-sm text-slate-600 dark:text-slate-400"},
+            e('ul', { className: "list-disc list-inside space-y-1 pl-2"},
+                e('li', null, "Memorize the top row: Hosea, Joel, Amos."),
+                e('li', null, "Remember the first letters of each row vertically: ", e('strong', null, "H-O-N-H"), "."),
+                e('li', null, "The middle book in each of the top two rows starts with ", e('strong', null, "J"), "."),
+                e('li', null, "All books in the second row end in '", e('strong', null, "ah"), "' (Obadi", e('strong', null, "ah"), ", Jon", e('strong', null, "ah"), ", Mic", e('strong', null, "ah"), ")."),
+                e('li', null, "Notice the connections: ", e('strong', null, "H"), "abakkuk links to ", e('strong', null, "H"), "aggai, and ", e('strong', null, "Z"), "ephaniah links to ", e('strong', null, "Z"), "echariah."),
+                e('li', null, "The last book of the Hebrew Scriptures is Malachi.")
+            )
+        )
+    ) },
+    {
+        title: "The Four Gospels & Acts",
+        content: e('div', {className: "space-y-2"},
+            e('p', null, "These first five books are historical narratives:"),
+            e('ul', {className: "list-disc list-inside space-y-1 pl-2"},
+                e('li', null, e('strong', null, "Matthew, Mark, Luke, John:"), " The four accounts of Jesus' life and ministry."),
+                e('li', null, e('strong', null, "Acts:"), " Follows the Gospels, documenting the history of the early Christian congregation.")
+            )
+        )
+    },
+    {
+        title: "Paul's 14 Letters",
+        content: e('div', {className: "space-y-2"},
+            e('p', null, "Paul's letters can be remembered by following this logical flow:"),
+            e('ul', {className: "list-disc list-inside space-y-1 pl-2"},
+                e('li', null, "It starts with ", e('strong', null, "Romans"), ". Paul, an apostle to the nations, had Roman citizenship."),
+                e('li', null, "Next are all letters to congregations ending in '", e('strong', null, "ians"), "': 1 & 2 Corinthians, Galatians, Ephesians, Philippians, Colossians, 1 & 2 Thessalonians."),
+                e('li', null, "Then, letters to ", e('strong', null, "Timothy"), " (1 & 2) and ", e('strong', null, "Titus"), ", regarding spiritual requirements for privileges of service."),
+                e('li', null, "A personal appeal to ", e('strong', null, "Philemon"), " on the basis of love to take back his runaway slave, who had become a Christian."),
+                e('li', null, "He ends with a letter to the ", e('strong', null, "Hebrew"), " Christians in Jerusalem and Judea.")
+            )
+        )
+    },
+    {
+        title: "General Letters & Revelation",
+        content: e('div', {className: "space-y-2"},
+            e('ul', {className: "list-disc list-inside space-y-1 pl-2"},
+                e('li', null, e('strong', null, "James")),
+                e('li', null, e('strong', null, "1 & 2 Peter")),
+                e('li', null, e('strong', null, "1, 2, & 3 John")),
+                e('li', null, e('strong', null, "Jude")),
+                e('li', {className: "mt-2"}, "The final book of the Bible is ", e('strong', null, "Revelation"), ".")
+            )
+        )
+    }
+];
+
 const BookOrderPracticeScreen = ({ onBack, themeToggle }) => {
-    return e('div', { className: "flex flex-col min-h-screen" },
-        e(Header, { onBack, title: "Practice Mode" }, themeToggle),
-        e('main', { className: "p-4 flex-grow" },
-            e('div', { className: "space-y-6 max-w-4xl mx-auto" },
-                bibleBookOrderData.map(section => e('div', { key: section.id, className: "p-4 bg-white dark:bg-slate-800 rounded-lg shadow-md" },
-                    e('h2', { className: "text-2xl font-bold text-sky-700 dark:text-sky-400 border-b-2 border-sky-200 dark:border-sky-800 pb-2 mb-4" }, section.sectionTitle),
-                    section.categories.map(category => e('div', { key: category.title, className: "mb-4" },
-                        e('h3', { className: "text-xl font-semibold mb-1" }, category.title),
-                        e('p', { className: "text-slate-600 dark:text-slate-300" }, category.books.join(' • '))
-                    ))
-                )),
-                e(MinorProphetsMnemonic)
+    const [openKey, setOpenKey] = useState(mnemonicData[0].title);
+
+    const toggleOpen = (key) => {
+        setOpenKey(prevKey => (prevKey === key ? null : key));
+    };
+
+    return e('div', { className: "flex flex-col h-screen" },
+        e(Header, { onBack, title: "Practice Mnemonics" }, themeToggle),
+        e('main', { className: "p-4" },
+            e('div', { className: "space-y-4" },
+                mnemonicData.map(item => {
+                    const isOpen = openKey === item.title;
+                    return e('div', { key: item.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md" },
+                        e('button', { onClick: () => toggleOpen(item.title), className: "w-full flex justify-between items-center p-4 text-left", 'aria-expanded': isOpen },
+                            e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100" }, item.title),
+                            e(ChevronDownIcon, { className: `w-6 h-6 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}` })
+                        ),
+                        e('div', { className: `accordion-content ${isOpen ? 'open' : ''}` },
+                            e('div', null,
+                                e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700" },
+                                    e('div', { className: 'prose dark:prose-invert prose-p:my-2 prose-ul:my-2' }, item.content)
+                                )
+                            )
+                        )
+                    );
+                })
             )
         )
     );
 };
 
-const DraggableItem = ({ item, index, onDragStart, onDragOver, onDrop, onDragEnd, isCorrect, isComplete, children }) => {
-    const [isDragging, setIsDragging] = useState(false);
-    const handleDragStart = (e) => {
-        setIsDragging(true);
-        onDragStart(e, index);
-    };
-    const handleDragEnd = (e) => {
-        setIsDragging(false);
-        onDragEnd(e);
-    };
+const BookOrderChallengeScreen = ({ onSelectSection, onBack, themeToggle, completedItems }) => {
+    return e('div', { className: "flex flex-col h-screen" },
+        e(Header, { onBack, title: "Bible Book Order Challenge" }, themeToggle),
+        e('main', { className: "p-4 flex-grow flex items-center justify-center" },
+            e('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl" },
+                bibleBookOrderData.map(section => {
+                    const bookCount = section.categories.flatMap(c => c.books).length;
+                    const isCompleted = completedItems.has(`order-books-${section.id}`);
+                    const buttonClass = `p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
 
-    let baseClass = "p-2 rounded-md shadow-sm transition-all duration-200 flex items-center";
-    let stateClass = "";
-    if (isDragging) {
-        stateClass = "bg-sky-200 dark:bg-sky-800 opacity-50";
-    } else if (isComplete && isCorrect) {
-        stateClass = "bg-green-100 dark:bg-green-900 border border-green-500 cursor-default";
-    } else {
-        stateClass = "bg-white dark:bg-slate-700 cursor-grab active:cursor-grabbing";
-    }
-
-    return e('div', {
-        draggable: !isComplete,
-        onDragStart: handleDragStart,
-        onDragOver,
-        onDrop: (e) => onDrop(e, index),
-        onDragEnd: handleDragEnd,
-        className: `${baseClass} ${stateClass}`
-    }, children);
+                    return e('button', {
+                        key: section.sectionTitle,
+                        onClick: () => onSelectSection(section),
+                        className: buttonClass
+                    },
+                      e('div', {className: 'flex justify-between items-start'},
+                        e('div', null, 
+                          e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, section.sectionTitle),
+                          e('p', { className: "text-md text-slate-500 dark:text-slate-400 mt-1" }, `${bookCount} books`)
+                        ),
+                        isCompleted && e(CheckCircleIcon, { className: "w-8 h-8 text-green-500 flex-shrink-0 ml-2" })
+                      )
+                    )
+                })
+            )
+        )
+    );
 };
 
-const BookOrderChallengeScreen = ({ onBack, themeToggle, onComplete }) => {
-    const [sections, setSections] = useState(() => shuffleArray(bibleBookOrderData).map(s => ({ ...s, isComplete: false, isCorrect: false })));
-    const [bookLists, setBookLists] = useState({});
-    const [completedCategories, setCompletedCategories] = useState(new Set());
-    const [draggedItem, setDraggedItem] = useState(null);
-    const [draggedSection, setDraggedSection] = useState(null);
+const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
+    const [stage, setStage] = useState('books'); // 'books', 'categories', 'complete'
+    const [categoryIndex, setCategoryIndex] = useState(0);
+    const [completedCategories, setCompletedCategories] = useState([]);
+    
+    const [sourceBooks, setSourceBooks] = useState([]);
+    const [targetBooks, setTargetBooks] = useState([]);
+    const [isCategoryCorrect, setIsCategoryCorrect] = useState(false);
+    
+    const [categoryOrder, setCategoryOrder] = useState([]);
+    const [categoryStatuses, setCategoryStatuses] = useState([]);
+    const [feedback, setFeedback] = useState({ text: '', type: '' });
+    const [isFinalOrderCorrect, setIsFinalOrderCorrect] = useState(false);
+
+    const dragItem = useRef(null);
+    const dragOverItem = useRef(null);
+    const [dragOverIndex, setDragOverIndex] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const hasCompleted = useRef(false);
 
     useEffect(() => {
-        const initialBookLists = {};
-        bibleBookOrderData.forEach(section => {
-            section.categories.forEach(category => {
-                initialBookLists[category.title] = shuffleArray(category.books);
+        hasCompleted.current = false;
+    }, [section.id]);
+
+    const currentCategory = useMemo(() => section.categories[categoryIndex], [section, categoryIndex]);
+
+    const setupCategory = useCallback((index) => {
+        const categoryData = section.categories[index];
+        if (!categoryData) return;
+        setSourceBooks(shuffleArray(categoryData.books.map(b => ({ name: b }))));
+        setTargetBooks([]);
+        setIsCategoryCorrect(false);
+        setFeedback({ text: '', type: '' });
+    }, [section.categories]);
+
+    useEffect(() => {
+        if (stage === 'books') {
+            setupCategory(categoryIndex);
+        }
+    }, [stage, categoryIndex, setupCategory]);
+
+    useEffect(() => {
+        if (stage === 'books' && currentCategory && sourceBooks.length === 0 && targetBooks.length > 0) {
+            const correctOrder = currentCategory.books;
+            const userOrder = targetBooks.map(b => b.name);
+            const isCorrect = JSON.stringify(correctOrder) === JSON.stringify(userOrder);
+            
+            setIsCategoryCorrect(isCorrect);
+            setFeedback({
+                text: isCorrect ? "Correct! Well done." : "The order is not quite right. Try again!",
+                type: isCorrect ? 'success' : 'error'
             });
-        });
-        setBookLists(initialBookLists);
+        } else {
+             setIsCategoryCorrect(false);
+             if (feedback.type === 'error') {
+                 setFeedback({ text: '', type: '' });
+             }
+        }
+    }, [stage, sourceBooks, targetBooks, currentCategory, feedback.type]);
+
+    const handleNext = () => {
+        const newCompletedCategory = { title: currentCategory.title, books: targetBooks.map(b => b.name) };
+        const updatedCompleted = [...completedCategories, newCompletedCategory];
+        setCompletedCategories(updatedCompleted);
+
+        if (categoryIndex < section.categories.length - 1) {
+            setCategoryIndex(prev => prev + 1);
+        } else {
+            setStage('categories');
+            setCategoryOrder(shuffleArray(updatedCompleted));
+            setFeedback({ text: '', type: '' });
+        }
+    };
+    
+    const resetCurrentCategory = () => {
+        setupCategory(categoryIndex);
+    }
+
+    const checkCategoryOrder = () => {
+        const correctOrder = section.categories.map(c => c.title);
+        const userOrder = categoryOrder.map(c => c.title);
+        const isCorrect = JSON.stringify(correctOrder) === JSON.stringify(userOrder);
+        
+        const statuses = userOrder.map((title, index) => correctOrder[index] === title ? 'correct' : 'incorrect');
+        setCategoryStatuses(statuses);
+
+        if (isCorrect) {
+            if (!hasCompleted.current) {
+                onComplete(section.id);
+                hasCompleted.current = true;
+            }
+            setIsFinalOrderCorrect(true);
+            setFeedback({ text: "Perfect! You've ordered everything correctly.", type: 'success' });
+            setTimeout(() => setStage('complete'), 1500);
+        } else {
+            setFeedback({ text: 'Not quite right. Correct items are green, incorrect are red.', type: 'error' });
+        }
+    };
+
+    const handleDragStart = useCallback((e, item, source, index) => {
+        dragItem.current = { item, source, index };
+        setIsDragging(true);
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', ''); // For Firefox compatibility
+        }
+        if (stage === 'categories') {
+            setCategoryStatuses([]);
+            setFeedback({ text: '', type: '' });
+        }
+    }, [stage]);
+
+    const handleDragEnd = useCallback(() => {
+        dragItem.current = null;
+        dragOverItem.current = null;
+        setDragOverIndex(null);
+        setIsDragging(false);
     }, []);
 
-    const checkCategoryCompletion = (category) => {
-        const userOrder = bookLists[category.title];
-        const correctOrder = category.books;
-        if (JSON.stringify(userOrder) === JSON.stringify(correctOrder)) {
-            setCompletedCategories(prev => new Set(prev).add(category.title));
-            return true;
+    const handleDragOver = useCallback((e, index) => {
+        e.preventDefault(); // Necessary to allow dropping
+        if (dragOverItem.current !== index) {
+            dragOverItem.current = index;
+            setDragOverIndex(index);
         }
-        return false;
-    };
+    }, []);
 
-    const checkSectionCompletion = (section) => {
-        const allCategoriesCorrect = section.categories.every(cat => completedCategories.has(cat.title));
-        if (allCategoriesCorrect) {
-            setSections(prev => prev.map(s => s.id === section.id ? { ...s, isComplete: true } : s));
+    const handleContainerDragLeave = useCallback((e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+            dragOverItem.current = null;
+            setDragOverIndex(null);
         }
-    };
-    
-    const checkFinalCompletion = () => {
-        const correctOrder = bibleBookOrderData.map(s => s.id);
-        const userOrder = sections.map(s => s.id);
-        if (JSON.stringify(userOrder) === JSON.stringify(correctOrder)) {
-             setSections(prev => prev.map(s => ({...s, isCorrect: true})));
-             onComplete('hebrew-greek-order'); // A unique ID for the whole challenge
-        } else {
-            // Provide feedback if order is wrong
-        }
-    };
+    }, []);
 
-    const handleDrop = (e, dropIndex, categoryTitle) => {
+    const handleDrop = useCallback((e, target) => {
         e.preventDefault();
-        if (draggedItem === null) return;
+        if (!dragItem.current) return;
         
-        const list = [...bookLists[categoryTitle]];
-        const draggedContent = list[draggedItem];
-        list.splice(draggedItem, 1);
-        list.splice(dropIndex, 0, draggedContent);
-
-        setBookLists(prev => ({ ...prev, [categoryTitle]: list }));
-        setDraggedItem(null);
-    };
-    
-    const handleSectionDrop = (e, dropIndex) => {
-        e.preventDefault();
-        if (draggedSection === null) return;
-
-        const list = [...sections];
-        const draggedContent = list[draggedSection];
-        list.splice(draggedSection, 1);
-        list.splice(dropIndex, 0, draggedContent);
+        const { item, source, index } = dragItem.current;
         
-        setSections(list);
-        setDraggedSection(null);
-    };
+        if (stage === 'books') {
+            let newSourceBooks = [...sourceBooks];
+            let newTargetBooks = [...targetBooks];
 
-    const areAllSectionsComplete = sections.every(s => s.isComplete);
+            if (source === 'source' && target === 'targetBooks') {
+                newSourceBooks.splice(index, 1);
+                const dropIndex = dragOverItem.current !== null ? dragOverItem.current : newTargetBooks.length;
+                newTargetBooks.splice(dropIndex, 0, item);
+            } else if (source === 'target' && target === 'targetBooks') {
+                const draggedItem = newTargetBooks.splice(index, 1)[0];
+                const dropIndex = dragOverItem.current !== null ? dragOverItem.current : newTargetBooks.length;
+                newTargetBooks.splice(dropIndex, 0, draggedItem);
+            } else if (source === 'target' && target === 'sourceBooks') {
+                const draggedItem = newTargetBooks.splice(index, 1)[0];
+                newSourceBooks.push(draggedItem);
+            }
+            
+            setSourceBooks(newSourceBooks);
+            setTargetBooks(newTargetBooks);
+        }
+        
+        if (stage === 'categories') {
+            let newCategoryOrder = [...categoryOrder];
+            const draggedItem = newCategoryOrder.splice(index, 1)[0];
+            const dropIndex = dragOverItem.current !== null ? dragOverItem.current : newCategoryOrder.length;
+            newCategoryOrder.splice(dropIndex, 0, draggedItem);
+            setCategoryOrder(newCategoryOrder);
+        }
+        
+        handleDragEnd();
+    }, [stage, sourceBooks, targetBooks, categoryOrder, handleDragEnd]);
 
-    if (sections.every(s => s.isComplete && s.isCorrect)) {
+    useEffect(() => {
+        const moveHandler = (clientX, clientY) => {
+            const element = document.elementFromPoint(clientX, clientY);
+            if (!element) return;
+
+            const dropTarget = element.closest('[data-dnd-index]');
+            let newDragOverIndex = null;
+            
+            if (dropTarget) {
+                const index = parseInt(dropTarget.dataset.dndIndex, 10);
+                const zone = dropTarget.dataset.dndZone;
+                if ((stage === 'books' && zone === 'targetBooks') || (stage === 'categories' && zone === 'categories')) {
+                    newDragOverIndex = index;
+                }
+            } else {
+                const dropContainer = element.closest('[data-dnd-container]');
+                if (dropContainer) {
+                    const zone = dropContainer.dataset.dndContainer;
+                    if (stage === 'books' && zone === 'targetBooks') newDragOverIndex = targetBooks.length;
+                    else if (stage === 'categories' && zone === 'categories') newDragOverIndex = categoryOrder.length;
+                }
+            }
+            
+            if (newDragOverIndex !== dragOverIndex) {
+                 dragOverItem.current = newDragOverIndex;
+                 setDragOverIndex(newDragOverIndex);
+            }
+        };
+
+        const handleTouchMove = e => {
+            if (isDragging) {
+                 e.preventDefault();
+                 const touch = e.touches[0];
+                 moveHandler(touch.clientX, touch.clientY);
+            }
+        };
+
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        
+        const handleTouchEnd = (e) => {
+            if (isDragging) {
+                const touch = e.changedTouches[0];
+                const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                const container = element ? element.closest('[data-dnd-container]') : null;
+                if (container) {
+                    handleDrop(e, container.dataset.dndContainer);
+                } else {
+                    handleDragEnd();
+                }
+            }
+        };
+
+        window.addEventListener('touchend', handleTouchEnd);
+        
+        return () => {
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [isDragging, stage, targetBooks.length, categoryOrder.length, dragOverIndex, handleDrop, handleDragEnd]);
+
+    const resetGame = useCallback(() => {
+        setStage('books');
+        setCategoryIndex(0);
+        setCompletedCategories([]);
+        setCategoryOrder([]);
+        setCategoryStatuses([]);
+        setIsFinalOrderCorrect(false);
+    }, []);
+
+    if (stage === 'complete') {
         return e('div', { className: "flex flex-col h-screen" },
             e(Confetti, null),
-            e(Header, { onBack, title: "Challenge Complete!" }, themeToggle),
+            e(Header, { onBack, title: section.sectionTitle }, themeToggle),
             e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in-up" },
-                e('h2', { className: "text-4xl font-bold mb-4 text-sky-600 dark:text-sky-400" }, "Mastered!"),
-                e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, "You've correctly ordered all the books of the Bible!"),
-                e('button', { onClick: onBack, className: "mt-8 px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Menu")
+                e('h2', { className: "text-4xl font-bold mb-4 text-sky-600 dark:text-sky-400" }, "Congratulations!"),
+                e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, `You correctly sorted all books and categories for the ${section.sectionTitle}.`),
+                e('div', { className: "flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mt-8" },
+                    e('button', { onClick: resetGame, className: "px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Play Again"),
+                    e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Menu")
+                )
             )
         );
     }
     
-    return e('div', { className: "flex flex-col min-h-screen" },
-        e(Header, { onBack, title: "Bible Book Order Challenge" }, themeToggle),
-        e('main', { className: "p-4 flex-grow" },
-            e('div', { className: "space-y-6 max-w-4xl mx-auto" },
-                !areAllSectionsComplete && e('p', { className: 'text-center text-slate-600 dark:text-slate-400 mb-4 bg-slate-100 dark:bg-slate-800 p-3 rounded-md' }, 'First, order the books within each category. Once a category is correct, it will lock. Once all categories in a section are correct, the section will lock.'),
-                areAllSectionsComplete && e('p', { className: 'text-center text-slate-600 dark:text-slate-400 mb-4 bg-sky-100 dark:bg-sky-900/50 p-3 rounded-md' }, 'Great! Now, drag and drop the entire sections into their correct order.'),
-
-                sections.map((section, sectionIndex) => e(DraggableItem, {
-                    key: section.id,
-                    item: section,
-                    index: sectionIndex,
-                    isComplete: !areAllSectionsComplete,
-                    onDragStart: (e, index) => areAllSectionsComplete && setDraggedSection(index),
-                    onDragOver: (e) => e.preventDefault(),
-                    onDrop: handleSectionDrop,
-                    onDragEnd: () => {}
+    const getFeedbackClass = (type) => {
+        if (type === 'success') return 'text-green-600 dark:text-green-400';
+        if (type === 'error') return 'text-red-600 dark:text-red-400';
+        return 'text-slate-600 dark:text-slate-400';
+    };
+    
+    return e('div', { className: "flex flex-col h-screen" },
+        e(Header, { onBack, title: `Order: ${section.sectionTitle}` }, themeToggle),
+        e('main', { className: "flex-grow p-4 flex flex-col items-center" },
+            stage === 'books' && currentCategory && e('div', { key: categoryIndex, className: 'w-full max-w-4xl animate-fade-in' },
+                e('div', { className: 'text-center mb-4' },
+                    e('p', { className: 'text-sm font-semibold text-slate-500 dark:text-slate-400' }, `Category ${categoryIndex + 1} of ${section.categories.length}`),
+                    e('h2', { className: 'text-2xl font-bold' }, currentCategory.title),
+                ),
+                 e('div', {
+                    'data-dnd-container': 'targetBooks',
+                    className: `border-2 border-dashed rounded-lg p-4 min-h-[10rem] transition-colors ${isCategoryCorrect ? 'border-green-500' : 'border-slate-400 dark:border-slate-600'}`,
+                    onDragOver: (e) => {
+                        e.preventDefault();
+                        if (e.target.dataset.dndContainer === 'targetBooks') {
+                            handleDragOver(e, targetBooks.length);
+                        }
+                    },
+                    onDragLeave: handleContainerDragLeave,
+                    onDrop: (e) => handleDrop(e, 'targetBooks')
                 },
-                    e('div', { className: 'w-full' },
-                        e('div', { className: `p-4 ${section.isComplete ? 'bg-green-50 dark:bg-green-900/30' : ''} rounded-lg` },
-                            e('h2', { className: "text-2xl font-bold text-sky-700 dark:text-sky-400 border-b-2 border-sky-200 dark:border-sky-800 pb-2 mb-4 flex items-center" },
-                                e(DragHandleIcon, { className: `w-6 h-6 mr-2 text-slate-400 ${!areAllSectionsComplete ? 'opacity-30' : ''}` }),
-                                section.sectionTitle
-                            ),
-                            section.categories.map(category => {
-                                const isCatComplete = completedCategories.has(category.title);
-                                return e('div', { key: category.title, className: `mb-4 p-3 rounded-md ${isCatComplete ? 'bg-green-100 dark:bg-green-900/50' : ''}` },
-                                    e('h3', { className: "text-xl font-semibold mb-2" }, category.title),
-                                    e('div', { className: "space-y-2" },
-                                        bookLists[category.title] && bookLists[category.title].map((book, index) => e(DraggableItem, {
-                                            key: book,
-                                            item: book,
-                                            index,
-                                            isComplete: isCatComplete,
-                                            isCorrect: isCatComplete, // if complete, it must be correct
-                                            onDragStart: (e, dragIndex) => setDraggedItem(dragIndex),
-                                            onDragOver: (e) => e.preventDefault(),
-                                            onDrop: (e, dropIndex) => handleDrop(e, dropIndex, category.title),
-                                            onDragEnd: () => setDraggedItem(null)
-                                        },
-                                          e(DragHandleIcon, { className: "w-5 h-5 mr-2 text-slate-400" }),
-                                          e('span', null, book)
-                                        ))
-                                    ),
-                                    !isCatComplete && e('button', {
-                                        onClick: () => {
-                                            if (checkCategoryCompletion(category)) {
-                                                checkSectionCompletion(section);
-                                            }
-                                        },
-                                        className: "mt-3 px-4 py-1.5 bg-sky-600 text-white text-sm font-semibold rounded-full shadow-md hover:bg-sky-700 transition-colors"
-                                    }, "Check Order")
-                                );
-                            })
-                        )
+                    e('div', { className: 'flex flex-wrap gap-2' },
+                        targetBooks.map((book, index) => e(React.Fragment, { key: book.name },
+                            dragOverIndex === index && e('div', { className: 'w-1 h-10 bg-sky-500 rounded' }),
+                            e('div', {
+                                'data-dnd-index': index, 'data-dnd-zone': 'targetBooks',
+                                className: 'flex items-center justify-center text-center p-2 h-12 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-300 dark:border-slate-700 cursor-grab touch-none',
+                                draggable: true,
+                                onDragStart: (e) => handleDragStart(e, book, 'target', index),
+                                onTouchStart: (e) => handleDragStart(e, book, 'target', index),
+                                onDragEnd: handleDragEnd,
+                                onDragOver: (e) => { e.stopPropagation(); handleDragOver(e, index); }
+                            }, e('span', { className: "text-sm font-semibold" }, book.name))
+                        )),
+                         dragOverIndex === targetBooks.length && e('div', { className: 'w-1 h-10 bg-sky-500 rounded' })
                     )
-                )),
+                ),
                 
-                areAllSectionsComplete && e('button', {
-                    onClick: checkFinalCompletion,
-                    className: "w-full mt-6 px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors"
-                }, "Check Final Order")
+                e('div', { className: 'text-center my-4 h-6' },
+                    e('p', { className: `font-semibold ${getFeedbackClass(feedback.type)}` }, feedback.text)
+                ),
+
+                e('div', {
+                    'data-dnd-container': 'sourceBooks',
+                    className: 'mt-4 w-full p-4 border-t-2 border-slate-300 dark:border-slate-700 min-h-[8rem] bg-slate-50 dark:bg-slate-900/50 rounded-b-lg',
+                    onDragOver: (e) => e.preventDefault(),
+                    onDrop: (e) => handleDrop(e, 'sourceBooks')
+                },
+                    e('div', { className: 'flex flex-wrap gap-2 justify-center' },
+                        sourceBooks.map((book, index) => e('div', {
+                            key: book.name,
+                            className: 'flex items-center justify-center text-center p-2 h-12 bg-sky-100 dark:bg-sky-900/50 rounded-md shadow-sm border border-sky-300 dark:border-sky-700 cursor-grab touch-none',
+                            draggable: true,
+                            onDragStart: (e) => handleDragStart(e, book, 'source', index),
+                            onTouchStart: (e) => handleDragStart(e, book, 'source', index),
+                            onDragEnd: handleDragEnd,
+                        }, e('span', { className: "text-sm font-semibold" }, book.name)))
+                    )
+                ),
+
+                e('div', { className: "mt-6 flex justify-center space-x-4" },
+                    e('button', { onClick: resetCurrentCategory, className: "px-6 py-2 bg-slate-200 dark:bg-slate-700 font-semibold rounded-lg shadow-md hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors" }, "Reset"),
+                    isCategoryCorrect && e('button', { onClick: handleNext, className: "px-6 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors animate-fade-in" }, "Next Category")
+                )
+            ),
+
+            stage === 'categories' && e('div', { className: 'w-full max-w-4xl animate-fade-in' },
+                e('div', { className: 'text-center mb-4' },
+                    e('h2', { className: 'text-2xl font-bold' }, 'Final Step: Order the Categories'),
+                    e('p', { className: `font-semibold h-6 mt-2 ${getFeedbackClass(feedback.type)}` }, feedback.text || "Drag and drop the categories into their correct sequence.")
+                ),
+                e('div', {
+                    'data-dnd-container': 'categories',
+                    className: 'space-y-3',
+                    onDragOver: (e) => {
+                        e.preventDefault();
+                        if (e.target.dataset.dndContainer === 'categories') {
+                           handleDragOver(e, categoryOrder.length);
+                        }
+                    },
+                    onDragLeave: handleContainerDragLeave,
+                    onDrop: (e) => handleDrop(e, 'categories')
+                },
+                    categoryOrder.map((cat, index) => {
+                        const isDraggable = !isFinalOrderCorrect;
+                        const status = categoryStatuses[index];
+                        const categoryBoxClass = `w-full p-4 rounded-lg shadow-md transition-colors duration-500 flex items-center justify-between ${
+                            isFinalOrderCorrect ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
+                            : status === 'correct' ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
+                            : status === 'incorrect' ? 'border border-red-500 bg-red-100 dark:bg-red-900/50'
+                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                        }`;
+                        
+                        const titleClass = isFinalOrderCorrect || status === 'correct'
+                            ? 'font-bold text-lg text-green-800 dark:text-green-200'
+                            : status === 'incorrect'
+                            ? 'font-bold text-lg text-red-800 dark:text-red-200'
+                            : 'font-bold text-lg text-sky-700 dark:text-sky-300';
+                        const booksClass = isFinalOrderCorrect || status === 'correct'
+                            ? 'text-sm text-green-700 dark:text-green-400 mt-1'
+                             : status === 'incorrect'
+                            ? 'text-sm text-red-700 dark:text-red-400 mt-1'
+                            : 'text-sm text-slate-500 dark:text-slate-400 mt-1';
+                        
+                        return e(React.Fragment, { key: cat.title },
+                             dragOverIndex === index && isDraggable && e('div', { className: 'h-1 w-full bg-sky-500 rounded' }),
+                             e('div', {
+                                'data-dnd-index': index, 'data-dnd-zone': 'categories',
+                                className: categoryBoxClass,
+                                onDragOver: isDraggable ? (e) => { e.stopPropagation(); handleDragOver(e, index); } : undefined,
+                            },
+                                e('div', { className: 'flex-grow' },
+                                    e('h3', { className: titleClass }, cat.title),
+                                    e('p', { className: booksClass }, cat.books.join(', '))
+                                ),
+                                isDraggable && e('div', {
+                                    className: 'ml-4 p-2 cursor-grab touch-none rounded-md hover:bg-slate-200 dark:hover:bg-slate-700',
+                                    draggable: true,
+                                    onDragStart: (e) => handleDragStart(e, cat, 'categories', index),
+                                    onTouchStart: (e) => handleDragStart(e, cat, 'categories', index),
+                                    onDragEnd: handleDragEnd,
+                                }, e(DragHandleIcon, { className: 'w-6 h-6 text-slate-500 dark:text-slate-400' }))
+                            )
+                        );
+                    }),
+                    dragOverIndex === categoryOrder.length && !isFinalOrderCorrect && e('div', { className: 'h-1 w-full bg-sky-500 rounded' })
+                ),
+                e('div', { className: "mt-6 flex justify-center space-x-4" },
+                    e('button', { onClick: checkCategoryOrder, className: "px-8 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors", disabled: isFinalOrderCorrect }, "Check Final Order")
+                )
             )
         )
     );
 };
 
-// --- Main App Component ---
-function App() {
-  const [currentScreen, setCurrentScreen] = useState('home');
-  const [currentTopic, setCurrentTopic] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [currentContext, setCurrentContext] = useState(null);
-  
-  const [completedItems, setCompletedItems] = useState(() => {
-    try {
-        const items = localStorage.getItem('completedItems');
-        return items ? new Set(JSON.parse(items)) : new Set();
-    } catch(e) {
-        console.error("Could not parse completed items from localStorage", e);
-        return new Set();
-    }
-  });
+const ThemeToggle = ({ theme, setTheme }) => {
+  const toggleTheme = useCallback(() => {
+    setTheme(current => {
+      if (current === 'light') return 'dark';
+      if (current === 'dark') return 'system';
+      return 'light';
+    });
+  }, [setTheme]);
 
-  const [theme, setTheme] = useTheme();
+  const { Icon, label } = useMemo(() => {
+    if (theme === 'light') {
+      return { Icon: SunIcon, label: 'Switch to Dark Mode' };
+    }
+    if (theme === 'dark') {
+      return { Icon: MoonIcon, label: 'Switch to System Preference' };
+    }
+    return { Icon: DesktopIcon, label: 'Switch to Light Mode' };
+  }, [theme]);
   
+  return e('button', {
+    onClick: toggleTheme,
+    className: "p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500",
+    'aria-label': label,
+    title: label
+  }, e(Icon, { className: "w-6 h-6 text-slate-700 dark:text-slate-300" }));
+};
+
+
+// --- Main App Component ---
+export default function App() {
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem('hasSeenWelcome_v4'));
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [view, setView] = useState({ name: 'home', topic: null });
   const [installPrompt, setInstallPrompt] = useState(null);
   const { showUpdateNotification, handleUpdate } = useServiceWorkerUpdater();
-  const [showInstructions, setShowInstructions] = useState(() => !localStorage.getItem('hasSeenInstructions'));
-  
+  const [theme, setTheme] = useTheme();
+  const [completedItems, setCompletedItems] = useState(() => new Set());
+
+  useEffect(() => {
+    const resumeAudioContext = () => {
+      if (!window.appAudioContext) {
+        window.appAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (window.appAudioContext.state === 'suspended') {
+        window.appAudioContext.resume();
+      }
+      document.body.removeEventListener('click', resumeAudioContext);
+      document.body.removeEventListener('touchstart', resumeAudioContext);
+    };
+    document.body.addEventListener('click', resumeAudioContext);
+    document.body.addEventListener('touchstart', resumeAudioContext);
+    return () => {
+      document.body.removeEventListener('click', resumeAudioContext);
+      document.body.removeEventListener('touchstart', resumeAudioContext);
+    };
+  }, []);
+
+  useEffect(() => {
+    const storedCompleted = localStorage.getItem('completedItems_v2');
+    if (storedCompleted) {
+        setCompletedItems(new Set(JSON.parse(storedCompleted)));
+    }
+  }, []);
+
+  const markAsComplete = useCallback((gameMode, itemId) => {
+    if (!gameMode || !itemId) return;
+    const completionKey = `${gameMode}-${itemId}`;
+    setCompletedItems(prev => {
+        if (prev.has(completionKey)) return prev;
+        const newSet = new Set(prev);
+        newSet.add(completionKey);
+        localStorage.setItem('completedItems_v2', JSON.stringify(Array.from(newSet)));
+        return newSet;
+    });
+  }, []);
+
   useEffect(() => {
     const handler = (e) => {
       e.preventDefault();
@@ -1288,192 +1734,126 @@ function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  useEffect(() => {
-    // This effect sets up a persistent event listener to unlock and keep the audio context "warm".
-    // This is the most robust method for handling audio on restrictive mobile browsers like iOS Safari.
-    const unlockAudioContext = () => {
-      if (!window.appAudioContext) {
-        try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          window.appAudioContext = new AudioContext();
-          console.log('AudioContext created on user interaction.');
-        } catch (e) {
-          console.error('Web Audio API is not supported.', e);
-          return; // Can't proceed
-        }
-      }
-      
-      const audioContext = window.appAudioContext;
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-          // On iOS, an AudioContext that is resumed must immediately play a sound
-          // or it may be suspended again. Playing a silent buffer is a standard trick to keep it alive.
-          const buffer = audioContext.createBuffer(1, 1, 22050);
-          const source = audioContext.createBufferSource();
-          source.buffer = buffer;
-          source.connect(audioContext.destination);
-          source.start(0);
-          console.log('AudioContext resumed and kept warm with a silent sound.');
-        }).catch(e => console.error('Failed to resume AudioContext on interaction:', e));
-      }
-    };
-
-    document.addEventListener('click', unlockAudioContext);
-    // Use { passive: true } on touchstart to prevent interference with native gestures like swipe-to-navigate on iOS.
-    document.addEventListener('touchstart', unlockAudioContext, { passive: true });
-
-    return () => {
-      document.removeEventListener('click', unlockAudioContext);
-      document.removeEventListener('touchstart', unlockAudioContext);
-    };
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('completedItems', JSON.stringify(Array.from(completedItems)));
-  }, [completedItems]);
-
-  const handleComplete = useCallback((key) => {
-    // Sound unlocking is now handled by a global event listener,
-    // so no special action is needed here before playing the sound.
-    setCompletedItems(prev => new Set(prev).add(key));
-  }, []);
-
-  const handleSelectGame = (game) => {
-    setHistory(prev => [...prev, { screen: currentScreen, topic: currentTopic, context: currentContext }]);
-    switch (game.type) {
-        case QuizItemType.FLASHCARD_MENU:
-            setCurrentScreen('flashcards-menu');
-            break;
-        case QuizItemType.MATCH_SCRIPTURE:
-            setCurrentScreen('match-scripture-menu');
-            break;
-        case QuizItemType.ORDER_BOOKS:
-            setCurrentScreen('order-books-start');
-            break;
-        default:
-            setCurrentTopic(game);
-            setCurrentScreen('game');
-            break;
-    }
+  const handleInstallClick = () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    installPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') console.log('User accepted the install prompt');
+      else console.log('User dismissed the install prompt');
+      setInstallPrompt(null);
+    });
   };
 
-  const handleSelectTopic = (topic, context = null) => {
-    setHistory(prev => [...prev, { screen: currentScreen, topic: currentTopic, context: currentContext }]);
-    setCurrentTopic(topic);
-    setCurrentContext(context);
-    switch (topic.type) {
-        case QuizItemType.QA:
-        case QuizItemType.PROPHECY:
-        case QuizItemType.BOOKS:
-        case QuizItemType.HOW_TO:
-            setCurrentScreen('game');
-            break;
-        case QuizItemType.BOOK_QUIZ:
-            setCurrentScreen('quiz');
-            break;
-        case QuizItemType.MATCH_SCRIPTURE:
-            setCurrentScreen('match-game');
-            break;
-        default:
-            console.error("Unknown topic type:", topic.type);
+  const handleInstructionsDismiss = () => {
+    if (showWelcome) {
+        localStorage.setItem('hasSeenWelcome_v4', 'true');
+        setShowWelcome(false);
     }
+    setShowInstructions(false);
+  };
+  
+  const handleShowInstructions = () => {
+      setShowInstructions(true);
+  };
+
+  const handleSelectGame = (game) => {
+    if (game.type === QuizItemType.FLASHCARD_MENU) {
+      setView({ name: 'flashcards' });
+    } else if (game.type === QuizItemType.ORDER_BOOKS) {
+      setView({ name: 'bookOrderStart' });
+    } else if (game.type === QuizItemType.MATCH_SCRIPTURE) {
+      setView({ name: 'scriptureMatchingMenu' });
+    } else {
+      setView({ name: 'game', topic: game });
+    }
+  };
+  
+  const handleSelectBookOrderSection = (section) => {
+    setView({ name: 'bookOrderGame', topic: section });
+  };
+
+  const handleSelectTopic = (topic, context) => {
+    setView({ name: 'game', topic: topic, context: context });
   };
   
   const handleBack = () => {
-    if (history.length > 0) {
-      const lastState = history[history.length - 1];
-      setHistory(prev => prev.slice(0, -1));
-      setCurrentScreen(lastState.screen);
-      setCurrentTopic(lastState.topic);
-      setCurrentContext(lastState.context);
-    } else {
-      setCurrentScreen('home');
-      setCurrentTopic(null);
-      setCurrentContext(null);
+    const { name, topic, context } = view;
+    if (name === 'game') {
+        if (topic.type === QuizItemType.MATCH_SCRIPTURE) {
+            setView({ name: 'scriptureMatchingMenu', context: context });
+        } else {
+            setView({ name: 'flashcards', context: context });
+        }
+    } else if (name === 'flashcards' || name === 'scriptureMatchingMenu' || name === 'bookOrderStart') {
+        setView({ name: 'home' });
+    } else if (name === 'bookOrderPractice' || name === 'bookOrderChallenge') {
+        setView({ name: 'bookOrderStart' });
+    } else if (name === 'bookOrderGame') {
+        setView({ name: 'bookOrderChallenge' });
     }
-  };
-
-  const handleInstall = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-    }
-  };
-  
-  const handleShowInstructions = (isInitial = false) => {
-      setShowInstructions(true);
-      if (isInitial) {
-          localStorage.setItem('hasSeenInstructions', 'true');
-      }
-  };
-
-  const ThemeToggle = ({ theme, setTheme }) => {
-    const nextTheme = { light: 'dark', dark: 'system', system: 'light' };
-    const ThemeIcon = { light: SunIcon, dark: MoonIcon, system: DesktopIcon };
-    const currentIcon = ThemeIcon[theme];
-
-    return e('button', {
-      onClick: () => setTheme(nextTheme[theme]),
-      className: "p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors",
-      title: `Theme: ${theme}. Switch to ${nextTheme[theme]}.`
-    }, e(currentIcon, { className: "w-6 h-6" }));
   };
 
   const renderScreen = () => {
-    if (showInstructions) {
-        return e(InstructionsScreen, { 
-            onDismiss: () => {
-                setShowInstructions(false);
-                localStorage.setItem('hasSeenInstructions', 'true');
-            },
-            isInitialWelcome: !localStorage.getItem('hasSeenInstructions')
-        });
-    }
-      
-    switch (currentScreen) {
+    const themeToggle = e(ThemeToggle, { theme, setTheme });
+    const baseProps = { onBack: handleBack, themeToggle, completedItems };
+
+    switch (view.name) {
       case 'home':
-        return e(HomeScreen, { onSelectGame: handleSelectGame, onInstall: handleInstall, canInstall: !!installPrompt, onShowInstructions: () => handleShowInstructions(false), themeToggle: e(ThemeToggle, { theme, setTheme }) });
-      case 'flashcards-menu':
-        return e(FlashcardsMenuScreen, { onSelectTopic: handleSelectTopic, onBack: handleBack, themeToggle: e(ThemeToggle, { theme, setTheme }), initialContext: currentContext, completedItems });
-      case 'match-scripture-menu':
-        return e(ScriptureMatchingMenuScreen, { onSelectTopic: handleSelectTopic, onBack: handleBack, themeToggle: e(ThemeToggle, { theme, setTheme }), completedItems, initialContext: currentContext });
-      case 'game':
-        return e(ErrorBoundary, null, e(GameScreen, { topic: currentTopic, onBack: handleBack, themeToggle: e(ThemeToggle, { theme, setTheme }), onComplete: (id) => handleComplete(`flashcards-${id}`) }));
-      case 'quiz':
-        return e(ErrorBoundary, null, e(QuizScreen, { topic: currentTopic, onBack: handleBack, themeToggle: e(ThemeToggle, { theme, setTheme }), onComplete: (id) => handleComplete(`flashcards-${id}`) }));
-      case 'match-game':
-        return e(ErrorBoundary, null, e(MatchingGameScreen, { topic: currentTopic, onBack: handleBack, themeToggle: e(ThemeToggle, { theme, setTheme }), onComplete: (id) => handleComplete(`match-scripture-${id}`) }));
-      case 'order-books-start':
+        return e(HomeScreen, { onSelectGame: handleSelectGame, onInstall: handleInstallClick, canInstall: !!installPrompt, onShowInstructions: handleShowInstructions, themeToggle });
+      case 'flashcards':
+        return e(FlashcardsMenuScreen, { ...baseProps, onSelectTopic: handleSelectTopic, initialContext: view.context });
+      case 'scriptureMatchingMenu':
+        return e(ScriptureMatchingMenuScreen, { ...baseProps, onSelectTopic: handleSelectTopic, initialContext: view.context });
+      case 'bookOrderStart':
         return e(BookOrderStartScreen, {
-            onBack: handleBack,
-            themeToggle: e(ThemeToggle, { theme, setTheme }),
-            onPractice: () => {
-                setHistory(prev => [...prev, { screen: currentScreen, topic: currentTopic, context: currentContext }]);
-                setCurrentScreen('order-books-practice');
-            },
-            onStart: () => {
-                setHistory(prev => [...prev, { screen: currentScreen, topic: currentTopic, context: currentContext }]);
-                setCurrentScreen('order-books-challenge');
-            }
+            ...baseProps,
+            onPractice: () => setView({ name: 'bookOrderPractice' }),
+            onStart: () => setView({ name: 'bookOrderChallenge' })
         });
-      case 'order-books-practice':
-        return e(BookOrderPracticeScreen, { onBack: handleBack, themeToggle: e(ThemeToggle, { theme, setTheme }) });
-      case 'order-books-challenge':
-        return e(ErrorBoundary, null, e(BookOrderChallengeScreen, { onBack: handleBack, themeToggle: e(ThemeToggle, { theme, setTheme }), onComplete: (id) => handleComplete(`order-books-${id}`) }));
+      case 'bookOrderPractice':
+        return e(BookOrderPracticeScreen, { ...baseProps });
+      case 'bookOrderChallenge':
+        return e(BookOrderChallengeScreen, { ...baseProps, onSelectSection: handleSelectBookOrderSection });
+      case 'bookOrderGame':
+        return e(BookOrderGameScreen, { 
+            ...baseProps,
+            section: view.topic,
+            onComplete: (itemId) => markAsComplete('order-books', itemId)
+        });
+      case 'game':
+        if (!view.topic) return e(HomeScreen, { onSelectGame: handleSelectGame, themeToggle }); // Fallback
+        
+        const gameMode = view.topic.type === QuizItemType.MATCH_SCRIPTURE ? 'match-scripture' : 'flashcards';
+        const gameProps = { 
+            ...baseProps, 
+            topic: view.topic,
+            onComplete: (itemId) => markAsComplete(gameMode, itemId) 
+        };
+
+        switch (view.topic.type) {
+          case QuizItemType.BOOK_QUIZ:
+            return e(QuizScreen, gameProps);
+          case QuizItemType.MATCH_SCRIPTURE:
+            return e(MatchingGameScreen, gameProps);
+          default:
+            return e(GameScreen, gameProps);
+        }
       default:
-        return e('div', null, `Unknown screen: ${currentScreen}`);
+        return e(HomeScreen, { onSelectGame: handleSelectGame, themeToggle });
     }
   };
 
-  return e('div', { className: 'h-full' },
-    renderScreen(),
-    showUpdateNotification && e('div', { className: "fixed bottom-4 right-4 bg-sky-600 text-white p-4 rounded-lg shadow-lg flex items-center space-x-4 animate-fade-in-up" },
-        e('p', null, "A new version is available!"),
-        e('button', { onClick: handleUpdate, className: "px-4 py-2 bg-white text-sky-700 font-bold rounded-md hover:bg-sky-100" }, "Update Now")
+  return e(ErrorBoundary, null,
+    e('div', { className: 'relative min-h-screen' },
+        (showWelcome || showInstructions)
+            ? e(InstructionsScreen, { onDismiss: handleInstructionsDismiss, isInitialWelcome: showWelcome })
+            : renderScreen(),
+        showUpdateNotification && e('div', { className: "fixed bottom-4 right-4 z-50 animate-fade-in-up" },
+            e('div', { className: "bg-slate-900 dark:bg-slate-200 text-white dark:text-slate-900 rounded-lg shadow-xl p-4 flex items-center space-x-4" },
+                e('p', { className: "font-medium" }, "A new version is available!"),
+                e('button', { onClick: handleUpdate, className: "px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-md font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 dark:focus:ring-offset-slate-200 focus:ring-sky-500" }, "Reload")
+            )
+        )
     )
   );
 }
-
-export default App;
