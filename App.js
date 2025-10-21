@@ -1688,6 +1688,25 @@ export default function App() {
   const [completedItems, setCompletedItems] = useState(() => new Set());
 
   useEffect(() => {
+    const resumeAudioContext = () => {
+      if (!window.appAudioContext) {
+        window.appAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (window.appAudioContext.state === 'suspended') {
+        window.appAudioContext.resume();
+      }
+      document.body.removeEventListener('click', resumeAudioContext);
+      document.body.removeEventListener('touchstart', resumeAudioContext);
+    };
+    document.body.addEventListener('click', resumeAudioContext);
+    document.body.addEventListener('touchstart', resumeAudioContext);
+    return () => {
+      document.body.removeEventListener('click', resumeAudioContext);
+      document.body.removeEventListener('touchstart', resumeAudioContext);
+    };
+  }, []);
+
+  useEffect(() => {
     const storedCompleted = localStorage.getItem('completedItems_v2');
     if (storedCompleted) {
         setCompletedItems(new Set(JSON.parse(storedCompleted)));
