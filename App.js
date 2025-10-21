@@ -223,6 +223,105 @@ class ErrorBoundary extends React.Component {
 }
 
 // --- UI Components ---
+const Confetti = React.memo(({ count = 200 }) => {
+  const [particles, setParticles] = useState([]);
+
+  const playConfettiSound = useCallback(() => {
+    if (!window.appAudioContext) {
+        window.appAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const audioContext = window.appAudioContext;
+    if (!audioContext) return;
+
+    const playSound = () => {
+        const now = audioContext.currentTime;
+
+        // Low-frequency boom for the "oomph"
+        const boomOsc = audioContext.createOscillator();
+        boomOsc.type = 'sine';
+        boomOsc.frequency.setValueAtTime(100, now); // Start freq
+        boomOsc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); // Pitch drop
+
+        const boomGain = audioContext.createGain();
+        boomGain.gain.setValueAtTime(0.5, now); // Initial volume
+        boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        boomOsc.connect(boomGain);
+        boomGain.connect(audioContext.destination);
+
+        // Noise burst for the "crackle"
+        const noiseDuration = 0.5;
+        const bufferSize = audioContext.sampleRate * noiseDuration;
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const output = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1; // White noise
+        }
+
+        const noiseSource = audioContext.createBufferSource();
+        noiseSource.buffer = buffer;
+
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0.25, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
+
+        noiseSource.connect(noiseGain);
+        noiseGain.connect(audioContext.destination);
+
+        // Start and stop sounds
+        boomOsc.start(now);
+        boomOsc.stop(now + 0.4);
+        noiseSource.start(now);
+        noiseSource.stop(now + noiseDuration);
+    };
+
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().then(playSound).catch(err => console.error("Could not resume audio context for confetti sound:", err));
+    } else {
+        playSound();
+    }
+  }, []);
+  
+  useEffect(() => {
+    playConfettiSound();
+
+    const newParticles = Array.from({ length: count }).map((_, i) => {
+      const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
+      const duration = Math.random() * 1.5 + 1;
+      const size = Math.random() * 4 + 4;
+      const isRect = Math.random() > 0.2;
+      const rectWidth = size;
+      const rectHeight = size * 2;
+      
+      return {
+        id: i,
+        style: {
+          '--end-x': `${(Math.random() - 0.5) * 150}vw`,
+          '--end-y': `${(Math.random() - 0.5) * 150}vh`,
+          '--end-rotation': `${Math.random() * 540 + 540}deg`,
+          animationDuration: `${duration}s`,
+          animationDelay: `${Math.random() * 0.1}s`,
+          backgroundColor: colors[Math.floor(Math.random() * colors.length)],
+          left: '50%',
+          top: '50%', // Start from center
+          width: isRect ? `${rectWidth}px` : `${size}px`,
+          height: isRect ? `${rectHeight}px` : `${size}px`,
+          borderRadius: isRect ? '0' : '50%',
+        }
+      };
+    });
+    setParticles(newParticles);
+  }, [count, playConfettiSound]);
+
+  return e('div', { className: 'fixed inset-0 pointer-events-none z-[100] overflow-hidden' },
+    particles.map(p => e('div', {
+      key: p.id,
+      className: 'absolute animate-confetti-burst',
+      style: p.style,
+    }))
+  );
+});
+
 const Header = ({ onBack, title, children }) => e('header', { className: "p-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm sticky top-0 z-20 flex items-center shadow-sm" },
     onBack && e('button', { onClick: onBack, className: "p-2 mr-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors", 'aria-label': "Go back" },
         e(BackIcon, { className: "w-6 h-6" })
@@ -352,45 +451,49 @@ const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle, initialConte
             e('div', { className: "space-y-4" },
                 flashcardDecks.map(group => {
                     const isGroupOpen = openItems.has(group.title);
-                    return e('div', { key: group.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md transition-all duration-300" },
-                        e('button', { onClick: () => toggleOpen(group.title), className: "w-full flex justify-between items-center p-4 text-left", 'aria-expanded': isGroupOpen },
-                            e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100" }, group.title),
+                    return e('div', { key: group.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md" },
+                        e('button', { onClick: () => toggleOpen(group.title), className: `w-full flex justify-between items-center p-4 text-left bg-sky-50 dark:bg-sky-900/40 transition-colors ${isGroupOpen ? 'rounded-t-lg' : 'rounded-lg'}`, 'aria-expanded': isGroupOpen },
+                            e('h3', { className: "text-xl font-bold text-sky-700 dark:text-sky-400" }, group.title),
                             e(ChevronDownIcon, { className: `w-6 h-6 text-slate-500 transition-transform duration-300 ${isGroupOpen ? 'rotate-180' : ''}` })
                         ),
-                        e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isGroupOpen ? 'max-h-[3000px]' : 'max-h-0'}` },
-                            e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2" },
-                                group.subGroups.map(subGroup => {
-                                    const subGroupKey = `${group.title}-${subGroup.title}`;
-                                    const isSubGroupOpen = openItems.has(subGroupKey);
-                                    return e('div', { key: subGroupKey, className: "border border-slate-200 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-900/50" },
-                                        e('button', { onClick: () => toggleSubOpen(subGroupKey), className: "w-full flex justify-between items-center p-3 text-left", 'aria-expanded': isSubGroupOpen },
-                                            e('h4', { className: "font-semibold text-slate-700 dark:text-slate-300" }, subGroup.title),
-                                            e(ChevronDownIcon, { className: `w-5 h-5 text-slate-400 transition-transform duration-300 ${isSubGroupOpen ? 'rotate-180' : ''}` })
-                                        ),
-                                        e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isSubGroupOpen ? 'max-h-[2000px]' : 'max-h-0'}` },
-                                            e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
-                                                subGroup.items.map(item => {
-                                                    const isCompleted = completedItems.has(`flashcards-${item.id}`);
-                                                    const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
-                                                    
-                                                    return e('button', { 
-                                                        key: item.id, 
-                                                        onClick: () => onSelectTopic(item, { groupTitle: group.title, subGroupTitle: subGroup.title }), 
-                                                        className: buttonClass
-                                                    },
-                                                        e('div', {className: "flex justify-between items-start"},
-                                                          e('div', null,
-                                                            e('p', { className: "text-sm font-semibold text-sky-600 dark:text-sky-400" }, item.type),
-                                                            e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question)
-                                                          ),
-                                                          isCompleted && e(CheckCircleIcon, { className: "w-6 h-6 text-green-500 flex-shrink-0 ml-2" })
-                                                        )
+                        e('div', { className: `accordion-content ${isGroupOpen ? 'open' : ''}` },
+                           e('div', null,
+                                e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2" },
+                                    group.subGroups.map(subGroup => {
+                                        const subGroupKey = `${group.title}-${subGroup.title}`;
+                                        const isSubGroupOpen = openItems.has(subGroupKey);
+                                        return e('div', { key: subGroupKey, className: "border border-slate-200 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-900/50" },
+                                            e('button', { onClick: () => toggleSubOpen(subGroupKey), className: "w-full flex justify-between items-center p-3 text-left", 'aria-expanded': isSubGroupOpen },
+                                                e('h4', { className: "font-semibold text-slate-800 dark:text-white" }, subGroup.title),
+                                                e(ChevronDownIcon, { className: `w-5 h-5 text-slate-400 transition-transform duration-300 ${isSubGroupOpen ? 'rotate-180' : ''}` })
+                                            ),
+                                            e('div', { className: `accordion-content ${isSubGroupOpen ? 'open' : ''}` },
+                                               e('div', null,
+                                                    e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
+                                                        subGroup.items.map(item => {
+                                                            const isCompleted = completedItems.has(`flashcards-${item.id}`);
+                                                            const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
+                                                            
+                                                            return e('button', { 
+                                                                key: item.id, 
+                                                                onClick: () => onSelectTopic(item, { groupTitle: group.title, subGroupTitle: subGroup.title }), 
+                                                                className: buttonClass
+                                                            },
+                                                                e('div', {className: "flex justify-between items-start"},
+                                                                  e('div', null,
+                                                                    e('p', { className: "text-sm font-semibold text-sky-600 dark:text-sky-400" }, item.type),
+                                                                    e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question)
+                                                                  ),
+                                                                  isCompleted && e(CheckCircleIcon, { className: "w-6 h-6 text-green-500 flex-shrink-0 ml-2" })
+                                                                )
+                                                            )
+                                                        })
                                                     )
-                                                })
+                                                )
                                             )
-                                        )
-                                    );
-                                })
+                                        );
+                                    })
+                                )
                             )
                         )
                     );
@@ -460,42 +563,46 @@ const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle, compl
                 flashcardDecks.map(group => {
                     const isGroupOpen = openItems.has(group.title);
                     return e('div', { key: group.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md" },
-                        e('button', { onClick: () => toggleOpen(group.title), className: "w-full flex justify-between items-center p-4 text-left" },
-                            e('h3', { className: "text-xl font-bold" }, group.title),
-                            e(ChevronDownIcon, { className: `w-6 h-6 text-slate-500 transition-transform ${isGroupOpen ? 'rotate-180' : ''}` })
+                        e('button', { onClick: () => toggleOpen(group.title), className: `w-full flex justify-between items-center p-4 text-left bg-sky-50 dark:bg-sky-900/40 transition-colors ${isGroupOpen ? 'rounded-t-lg' : 'rounded-lg'}`, 'aria-expanded': isGroupOpen },
+                            e('h3', { className: "text-xl font-bold text-sky-700 dark:text-sky-400" }, group.title),
+                            e(ChevronDownIcon, { className: `w-6 h-6 text-slate-500 transition-transform duration-300 ${isGroupOpen ? 'rotate-180' : ''}` })
                         ),
-                        e('div', { className: `transition-all duration-300 ease-in-out overflow-hidden ${isGroupOpen ? 'max-h-[3000px]' : 'max-h-0'}` },
-                           e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2" },
-                                group.subGroups.map(subGroup => {
-                                    const subGroupKey = `${group.title}-${subGroup.title}`;
-                                    const isSubGroupOpen = openItems.has(subGroupKey);
-                                    return e('div', { key: subGroupKey, className: "border border-slate-200 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-900/50" },
-                                        e('button', { onClick: () => toggleSubOpen(subGroupKey), className: "w-full flex justify-between items-center p-3 text-left" },
-                                            e('h4', { className: "font-semibold text-slate-700 dark:text-slate-300" }, subGroup.title),
-                                            e(ChevronDownIcon, { className: `w-5 h-5 text-slate-400 transition-transform ${isSubGroupOpen ? 'rotate-180' : ''}` })
-                                        ),
-                                        e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isSubGroupOpen ? 'max-h-[2000px]' : 'max-h-0'}` },
-                                            e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
-                                                subGroup.items.map(item => {
-                                                    const isCompleted = completedItems.has(`match-scripture-${item.id}`);
-                                                    const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
+                        e('div', { className: `accordion-content ${isGroupOpen ? 'open' : ''}` },
+                           e('div', null,
+                                e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2" },
+                                    group.subGroups.map(subGroup => {
+                                        const subGroupKey = `${group.title}-${subGroup.title}`;
+                                        const isSubGroupOpen = openItems.has(subGroupKey);
+                                        return e('div', { key: subGroupKey, className: "border border-slate-200 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-900/50" },
+                                            e('button', { onClick: () => toggleSubOpen(subGroupKey), className: "w-full flex justify-between items-center p-3 text-left" },
+                                                e('h4', { className: "font-semibold text-slate-800 dark:text-white" }, subGroup.title),
+                                                e(ChevronDownIcon, { className: `w-5 h-5 text-slate-400 transition-transform duration-300 ${isSubGroupOpen ? 'rotate-180' : ''}` })
+                                            ),
+                                            e('div', { className: `accordion-content ${isSubGroupOpen ? 'open' : ''}` },
+                                               e('div', null,
+                                                    e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
+                                                        subGroup.items.map(item => {
+                                                            const isCompleted = completedItems.has(`match-scripture-${item.id}`);
+                                                            const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
 
-                                                    return e('button', { 
-                                                        key: item.id, 
-                                                        onClick: () => handleSelect(item, group.title, subGroup.title), 
-                                                        className: buttonClass
-                                                    },
-                                                        e('div', { className: "flex justify-between items-start" },
-                                                            e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question),
-                                                            isCompleted && e(CheckCircleIcon, { className: "w-6 h-6 text-green-500 flex-shrink-0 ml-2" })
-                                                        )
-                                                    );
-                                                })
+                                                            return e('button', { 
+                                                                key: item.id, 
+                                                                onClick: () => handleSelect(item, group.title, subGroup.title), 
+                                                                className: buttonClass
+                                                            },
+                                                                e('div', { className: "flex justify-between items-start" },
+                                                                    e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question),
+                                                                    isCompleted && e(CheckCircleIcon, { className: "w-6 h-6 text-green-500 flex-shrink-0 ml-2" })
+                                                                )
+                                                            );
+                                                        })
+                                                    )
+                                                )
                                             )
-                                        )
-                                    );
-                                })
-                           )
+                                        );
+                                    })
+                               )
+                            )
                         )
                     );
                 })
@@ -729,14 +836,15 @@ const QuizScreen = ({ topic, onBack, themeToggle, onComplete }) => {
   if (quizFinished) {
       const isPerfectScore = score === questions.length;
       return e('div', { className: "flex flex-col h-screen" },
+        e(Confetti, null),
         e(Header, { onBack, title: "Quiz Results" }, themeToggle),
         e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in-up" },
-            e('h2', { className: "text-4xl font-bold mb-4" }, isPerfectScore ? "Well done!" : "Good effort!"),
-            e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, isPerfectScore ? "You answered every question correctly!" : "Do you want to try again?"),
+            e('h2', { className: "text-4xl font-bold mb-4 text-sky-600 dark:text-sky-400" }, "Congratulations!"),
+            e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, isPerfectScore ? "You answered every question correctly!" : "You finished the quiz. Great job!"),
             e('p', { className: "text-5xl font-bold mb-8" }, "Your score: ", e('span', { className: "text-sky-600 dark:text-sky-400" }, `${score} / ${questions.length}`)),
             e('div', { className: "flex space-x-4" },
                 e('button', { onClick: handleRestart, className: "px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Try Again"),
-                e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Home")
+                e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Menu")
             )
         )
     );
@@ -852,13 +960,14 @@ const MatchingGameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
 
     if (isComplete) {
       return e('div', { className: "flex flex-col h-screen" },
+        e(Confetti, null),
         e(Header, { onBack, title: "Game Complete!" }, themeToggle),
         e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in-up" },
-            e('h2', { className: "text-4xl font-bold mb-4" }, "Well done!"),
+            e('h2', { className: "text-4xl font-bold mb-4 text-sky-600 dark:text-sky-400" }, "Congratulations!"),
             e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, "You matched them all!"),
             e('div', { className: "flex space-x-4 mt-8" },
                 e('button', { onClick: initializeGame, className: "px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Play Again"),
-                e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Home")
+                e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Menu")
             )
         )
     );
@@ -1096,14 +1205,16 @@ const BookOrderPracticeScreen = ({ onBack, themeToggle }) => {
             e('div', { className: "space-y-4" },
                 mnemonicData.map(item => {
                     const isOpen = openKey === item.title;
-                    return e('div', { key: item.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md transition-all duration-300" },
+                    return e('div', { key: item.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md" },
                         e('button', { onClick: () => toggleOpen(item.title), className: "w-full flex justify-between items-center p-4 text-left", 'aria-expanded': isOpen },
                             e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100" }, item.title),
                             e(ChevronDownIcon, { className: `w-6 h-6 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}` })
                         ),
-                        e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[1000px]' : 'max-h-0'}` },
-                            e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700" },
-                                e('div', { className: 'prose dark:prose-invert prose-p:my-2 prose-ul:my-2' }, item.content)
+                        e('div', { className: `accordion-content ${isOpen ? 'open' : ''}` },
+                            e('div', null,
+                                e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700" },
+                                    e('div', { className: 'prose dark:prose-invert prose-p:my-2 prose-ul:my-2' }, item.content)
+                                )
                             )
                         )
                     );
@@ -1152,6 +1263,7 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
     const [isCategoryCorrect, setIsCategoryCorrect] = useState(false);
     
     const [categoryOrder, setCategoryOrder] = useState([]);
+    const [categoryStatuses, setCategoryStatuses] = useState([]);
     const [feedback, setFeedback] = useState({ text: '', type: '' });
     const [isFinalOrderCorrect, setIsFinalOrderCorrect] = useState(false);
 
@@ -1223,6 +1335,9 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
         const correctOrder = section.categories.map(c => c.title);
         const userOrder = categoryOrder.map(c => c.title);
         const isCorrect = JSON.stringify(correctOrder) === JSON.stringify(userOrder);
+        
+        const statuses = userOrder.map((title, index) => correctOrder[index] === title ? 'correct' : 'incorrect');
+        setCategoryStatuses(statuses);
 
         if (isCorrect) {
             if (!hasCompleted.current) {
@@ -1233,8 +1348,7 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
             setFeedback({ text: "Perfect! You've ordered everything correctly.", type: 'success' });
             setTimeout(() => setStage('complete'), 1500);
         } else {
-            setFeedback({ text: 'Not quite the right order for the categories. Try again!', type: 'error' });
-            setTimeout(() => setFeedback({text: '', type: ''}), 2500);
+            setFeedback({ text: 'Not quite right. Correct items are green, incorrect are red.', type: 'error' });
         }
     };
 
@@ -1245,7 +1359,11 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', ''); // For Firefox compatibility
         }
-    }, []);
+        if (stage === 'categories') {
+            setCategoryStatuses([]);
+            setFeedback({ text: '', type: '' });
+        }
+    }, [stage]);
 
     const handleDragEnd = useCallback(() => {
         dragItem.current = null;
@@ -1372,11 +1490,13 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
         setCategoryIndex(0);
         setCompletedCategories([]);
         setCategoryOrder([]);
+        setCategoryStatuses([]);
         setIsFinalOrderCorrect(false);
     }, []);
 
     if (stage === 'complete') {
         return e('div', { className: "flex flex-col h-screen" },
+            e(Confetti, null),
             e(Header, { onBack, title: section.sectionTitle }, themeToggle),
             e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in-up" },
                 e('h2', { className: "text-4xl font-bold mb-4 text-sky-600 dark:text-sky-400" }, "Congratulations!"),
@@ -1479,17 +1599,23 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
                 },
                     categoryOrder.map((cat, index) => {
                         const isDraggable = !isFinalOrderCorrect;
+                        const status = categoryStatuses[index];
                         const categoryBoxClass = `w-full p-4 rounded-lg shadow-md transition-colors duration-500 flex items-center justify-between ${
-                            isFinalOrderCorrect
-                                ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
-                                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                            isFinalOrderCorrect ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
+                            : status === 'correct' ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
+                            : status === 'incorrect' ? 'border border-red-500 bg-red-100 dark:bg-red-900/50'
+                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
                         }`;
                         
-                        const titleClass = isFinalOrderCorrect
+                        const titleClass = isFinalOrderCorrect || status === 'correct'
                             ? 'font-bold text-lg text-green-800 dark:text-green-200'
+                            : status === 'incorrect'
+                            ? 'font-bold text-lg text-red-800 dark:text-red-200'
                             : 'font-bold text-lg text-sky-700 dark:text-sky-300';
-                        const booksClass = isFinalOrderCorrect
+                        const booksClass = isFinalOrderCorrect || status === 'correct'
                             ? 'text-sm text-green-700 dark:text-green-400 mt-1'
+                             : status === 'incorrect'
+                            ? 'text-sm text-red-700 dark:text-red-400 mt-1'
                             : 'text-sm text-slate-500 dark:text-slate-400 mt-1';
                         
                         return e(React.Fragment, { key: cat.title },
