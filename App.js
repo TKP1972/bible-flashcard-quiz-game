@@ -1298,9 +1298,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // This effect runs once to set up a one-time event listener for unlocking the audio context.
-    // iOS and some other browsers require a user gesture to start the AudioContext.
-    const initAudioContext = () => {
+    // This effect sets up a persistent event listener to unlock the audio context.
+    // iOS and other browsers suspend the AudioContext and require a user gesture to resume it.
+    // By attempting to unlock on every interaction, we ensure it's ready when a sound needs to be played.
+    const unlockAudioContext = () => {
       if (!window.appAudioContext) {
         try {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -1312,34 +1313,27 @@ function App() {
       }
       
       if (window.appAudioContext && window.appAudioContext.state === 'suspended') {
-        window.appAudioContext.resume();
+        window.appAudioContext.resume().catch(e => console.error('Failed to resume AudioContext:', e));
       }
-
-      // This listener has served its purpose and should be removed.
-      document.removeEventListener('click', initAudioContext);
-      document.removeEventListener('touchstart', initAudioContext);
     };
 
-    document.addEventListener('click', initAudioContext);
-    document.addEventListener('touchstart', initAudioContext);
+    document.addEventListener('click', unlockAudioContext);
+    document.addEventListener('touchstart', unlockAudioContext);
 
     return () => {
-      // Cleanup listeners when the component unmounts.
-      document.removeEventListener('click', initAudioContext);
-      document.removeEventListener('touchstart', initAudioContext);
+      // Cleanup listeners when the App component unmounts.
+      document.removeEventListener('click', unlockAudioContext);
+      document.removeEventListener('touchstart', unlockAudioContext);
     };
-  }, []); // Empty dependency array ensures this runs only once.
+  }, []); // Empty dependency array ensures this runs for the lifetime of the app.
 
   useEffect(() => {
     localStorage.setItem('completedItems', JSON.stringify(Array.from(completedItems)));
   }, [completedItems]);
 
   const handleComplete = useCallback((key) => {
-    // Attempt to resume the audio context right before triggering the completion effect.
-    // This helps ensure the sound can play even if the context was suspended due to inactivity.
-    if (window.appAudioContext && window.appAudioContext.state === 'suspended') {
-      window.appAudioContext.resume().catch(e => console.error("Could not resume audio context on complete:", e));
-    }
+    // Sound unlocking is now handled by a global event listener,
+    // so no special action is needed here before playing the sound.
     setCompletedItems(prev => new Set(prev).add(key));
   }, []);
 
