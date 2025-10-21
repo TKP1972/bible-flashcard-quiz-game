@@ -228,61 +228,52 @@ const Confetti = React.memo(({ count = 200 }) => {
 
   const playConfettiSound = useCallback(() => {
     const audioContext = window.appAudioContext;
-    if (!audioContext) {
-      console.warn("AudioContext not available.");
+    // The global unlock handler should have set the state to 'running'.
+    // If not, it's unlikely we can recover here, so we just check and exit.
+    if (!audioContext || audioContext.state !== 'running') {
+      console.warn(`AudioContext not ready, sound aborted. State: ${audioContext?.state}`);
       return;
     }
 
-    if (audioContext.state !== 'running') {
-      console.warn(`AudioContext not running (state: ${audioContext.state}), sound will not play.`);
-      // Attempt to resume, might not work if not in a user gesture
-      audioContext.resume().catch(() => {});
-      return;
+    const now = audioContext.currentTime;
+
+    // Low-frequency boom for the "oomph"
+    const boomOsc = audioContext.createOscillator();
+    boomOsc.type = 'sine';
+    boomOsc.frequency.setValueAtTime(100, now); // Start freq
+    boomOsc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); // Pitch drop
+
+    const boomGain = audioContext.createGain();
+    boomGain.gain.setValueAtTime(0.5, now); // Initial volume
+    boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    boomOsc.connect(boomGain);
+    boomGain.connect(audioContext.destination);
+
+    // Noise burst for the "crackle"
+    const noiseDuration = 0.5;
+    const bufferSize = audioContext.sampleRate * noiseDuration;
+    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1; // White noise
     }
 
-    const playSound = () => {
-        const now = audioContext.currentTime;
+    const noiseSource = audioContext.createBufferSource();
+    noiseSource.buffer = buffer;
 
-        // Low-frequency boom for the "oomph"
-        const boomOsc = audioContext.createOscillator();
-        boomOsc.type = 'sine';
-        boomOsc.frequency.setValueAtTime(100, now); // Start freq
-        boomOsc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); // Pitch drop
+    const noiseGain = audioContext.createGain();
+    noiseGain.gain.setValueAtTime(0.25, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
 
-        const boomGain = audioContext.createGain();
-        boomGain.gain.setValueAtTime(0.5, now); // Initial volume
-        boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    noiseSource.connect(noiseGain);
+    noiseGain.connect(audioContext.destination);
 
-        boomOsc.connect(boomGain);
-        boomGain.connect(audioContext.destination);
-
-        // Noise burst for the "crackle"
-        const noiseDuration = 0.5;
-        const bufferSize = audioContext.sampleRate * noiseDuration;
-        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-        const output = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            output[i] = Math.random() * 2 - 1; // White noise
-        }
-
-        const noiseSource = audioContext.createBufferSource();
-        noiseSource.buffer = buffer;
-
-        const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(0.25, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
-
-        noiseSource.connect(noiseGain);
-        noiseGain.connect(audioContext.destination);
-
-        // Start and stop sounds
-        boomOsc.start(now);
-        boomOsc.stop(now + 0.4);
-        noiseSource.start(now);
-        noiseSource.stop(now + noiseDuration);
-    };
-    
-    playSound();
+    // Start and stop sounds
+    boomOsc.start(now);
+    boomOsc.stop(now + 0.4);
+    noiseSource.start(now);
+    noiseSource.stop(now + noiseDuration);
   }, []);
   
   useEffect(() => {
@@ -1298,9 +1289,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // This effect sets up a persistent event listener to unlock the audio context.
-    // iOS and other browsers suspend the AudioContext and require a user gesture to resume it.
-    // By attempting to unlock on every interaction, we ensure it's ready when a sound needs to be played.
+    // This effect sets up a persistent event listener to unlock and keep the audio context "warm".
+    // This is the most robust method for handling audio on restrictive mobile browsers like iOS Safari.
     const unlockAudioContext = () => {
       if (!window.appAudioContext) {
         try {
@@ -1309,23 +1299,34 @@ function App() {
           console.log('AudioContext created on user interaction.');
         } catch (e) {
           console.error('Web Audio API is not supported.', e);
+          return; // Can't proceed
         }
       }
       
-      if (window.appAudioContext && window.appAudioContext.state === 'suspended') {
-        window.appAudioContext.resume().catch(e => console.error('Failed to resume AudioContext:', e));
+      const audioContext = window.appAudioContext;
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          // On iOS, an AudioContext that is resumed must immediately play a sound
+          // or it may be suspended again. Playing a silent buffer is a standard trick to keep it alive.
+          const buffer = audioContext.createBuffer(1, 1, 22050);
+          const source = audioContext.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioContext.destination);
+          source.start(0);
+          console.log('AudioContext resumed and kept warm with a silent sound.');
+        }).catch(e => console.error('Failed to resume AudioContext on interaction:', e));
       }
     };
 
     document.addEventListener('click', unlockAudioContext);
-    document.addEventListener('touchstart', unlockAudioContext);
+    // Use { passive: true } on touchstart to prevent interference with native gestures like swipe-to-navigate on iOS.
+    document.addEventListener('touchstart', unlockAudioContext, { passive: true });
 
     return () => {
-      // Cleanup listeners when the App component unmounts.
       document.removeEventListener('click', unlockAudioContext);
       document.removeEventListener('touchstart', unlockAudioContext);
     };
-  }, []); // Empty dependency array ensures this runs for the lifetime of the app.
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('completedItems', JSON.stringify(Array.from(completedItems)));
