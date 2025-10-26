@@ -634,6 +634,12 @@ const CenteredScriptureList = ({ scriptures }) => e('div', { className: "space-y
     ))
 );
 
+const CenteredScriptureText = ({ scriptures }) => e('div', { className: "space-y-4 text-center flex items-center justify-center h-full" },
+    scriptures.map((s, i) => e('div', { key: i },
+        e('p', { className: "font-serif text-xl text-slate-700 dark:text-slate-300 leading-relaxed" }, s.text)
+    ))
+);
+
 const ScriptureTextOnly = ({ scriptures }) => e('div', { className: "space-y-4" },
     scriptures.map((s, i) => e('div', { key: i, className: "flex flex-col justify-center items-center h-full text-center" },
         e('p', { className: "font-serif text-slate-700 dark:text-slate-300 leading-relaxed text-lg" }, s.text),
@@ -693,6 +699,9 @@ const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
         switch (topic.type) {
             case QuizItemType.QA:
                 if (!currentItem) return null;
+                if (isReversed) {
+                    return e(ScriptureTextOnly, { scriptures: [{ text: currentItem.keyPhrase }] });
+                }
                 return e('div', { className: "text-center flex flex-col justify-center items-center h-full" },
                     e('p', { className: "text-sm font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 mb-4" }, "Recall the Scripture"),
                     e('p', { className: "text-4xl font-bold font-sans text-slate-800 dark:text-slate-100" }, currentItem.reference)
@@ -714,9 +723,12 @@ const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
         switch (topic.type) {
             case QuizItemType.QA:
                 if (!currentItem) return null;
-                const scriptureWithKeyPhrase = { ...currentItem, text: currentItem.keyPhrase };
-                if (isReversed) return e(ScriptureTextOnly, { scriptures: [scriptureWithKeyPhrase] });
-                return e('div', { className: "flex items-center justify-center h-full" }, e(CenteredScriptureList, { scriptures: [scriptureWithKeyPhrase] }));
+                if (isReversed) {
+                    return e('div', { className: "text-center flex flex-col justify-center items-center h-full" },
+                        e('p', { className: "text-4xl font-bold font-sans text-slate-800 dark:text-slate-100" }, currentItem.reference)
+                    );
+                }
+                return e(CenteredScriptureText, { scriptures: [{ text: currentItem.keyPhrase }] });
             case QuizItemType.PROPHECY:
                  if (!currentItem) return null;
                 const fulfillmentWithKeyPhrase = { ...currentItem.fulfillment, text: currentItem.fulfillment.keyPhrase };
@@ -749,9 +761,6 @@ const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
         }
     };
     
-    const renderFront = () => isReversed ? renderBackContent() : renderFrontContent();
-    const renderBack = () => isReversed ? renderFrontContent() : renderBackContent();
-
     if (!currentItem) {
         return e('div', { className: "flex flex-col h-screen" },
             e(Header, { onBack, title: topic.question }, themeToggle),
@@ -767,7 +776,7 @@ const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
         e(Header, { onBack, title: topic.question }, themeToggle),
         e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center" },
             e('div', { className: "w-full max-w-2xl h-[450px] mb-6" },
-                e(Flashcard, { front: renderFront(), back: renderBack(), isFlipped, onFlip: () => setIsFlipped(!isFlipped) })
+                e(Flashcard, { front: renderFrontContent(), back: renderBackContent(), isFlipped, onFlip: () => setIsFlipped(!isFlipped) })
             ),
             
             e('div', { className: "flex items-center justify-center space-x-2 sm:space-x-4 mt-6 w-full max-w-2xl" },
