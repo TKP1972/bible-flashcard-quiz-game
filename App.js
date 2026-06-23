@@ -142,7 +142,7 @@ const DragHandleIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2
   e('path', { d: "M17 19C17 20.1046 16.1046 21 15 21C13.8954 21 13 20.1046 13 19C13 17.8954 13.8954 17 15 17C16.1046 17 17 17.8954 17 19Z"}),
 );
 const QuestionMarkIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: 'M12,2C6.477,2,2,6.477,2,12s4.477,10,10,10s10-4.477,10-10S17.523,2,12,2z M12,17c-0.552,0-1-0.448-1-1v-4c0-0.552,0.448-1,1-1 s1,0.448,1,1v4C13,16.552,12.552,17,12,17z M12,9c-0.552,0-1-0.448-1-1s0.448-1,1-1s1,0.448,1,1S12.552,9,12,9z' }));
-const CheckCircleIcon = ({ className }) => e('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className }, e('path', { d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM9.29 16.29L5.7 12.7a.996.996 0 1 1 1.41-1.41L10 14.17l6.88-6.88a.996.996 0 1 1 1.41 1.41l-7.59 7.59a.996.996 0 0 1-1.41 0z" }));
+
 
 const ICONS = {
     Gamepad: GamepadIcon,
@@ -152,14 +152,14 @@ const ICONS = {
 const InstructionsScreen = ({ onDismiss, isInitialWelcome }) => {
   const instructions = [
     {
-      icon: 'Gamepad',
-      title: 'Match the Scripture',
-      text: 'Start here to learn the material. Pick a topic, then match the scripture reference on the left with its corresponding text on the right. A correct match will turn green!'
-    },
-    {
       icon: 'BookOpen',
       title: 'Flashcard Decks',
-      text: 'When you are confident with a section from the matching game, move on to flashcards to test your memory. Select a category to study, flip the cards, and use shuffle/reverse modes for an extra challenge.'
+      text: 'Select a category to study. Flip the cards to reveal the answer. Use the shuffle and reverse mode buttons for an extra challenge.'
+    },
+    {
+      icon: 'Gamepad',
+      title: 'Match the Scripture',
+      text: 'Pick a topic, then match the scripture reference on the left with its corresponding text on the right. A correct match will turn green!'
     },
     {
       icon: 'Gamepad',
@@ -223,105 +223,6 @@ class ErrorBoundary extends React.Component {
 }
 
 // --- UI Components ---
-const Confetti = React.memo(({ count = 200 }) => {
-  const [particles, setParticles] = useState([]);
-
-  const playConfettiSound = useCallback(() => {
-    if (!window.appAudioContext) {
-        window.appAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    const audioContext = window.appAudioContext;
-    if (!audioContext) return;
-
-    const playSound = () => {
-        const now = audioContext.currentTime;
-
-        // Low-frequency boom for the "oomph"
-        const boomOsc = audioContext.createOscillator();
-        boomOsc.type = 'sine';
-        boomOsc.frequency.setValueAtTime(100, now); // Start freq
-        boomOsc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); // Pitch drop
-
-        const boomGain = audioContext.createGain();
-        boomGain.gain.setValueAtTime(0.5, now); // Initial volume
-        boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-
-        boomOsc.connect(boomGain);
-        boomGain.connect(audioContext.destination);
-
-        // Noise burst for the "crackle"
-        const noiseDuration = 0.5;
-        const bufferSize = audioContext.sampleRate * noiseDuration;
-        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-        const output = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            output[i] = Math.random() * 2 - 1; // White noise
-        }
-
-        const noiseSource = audioContext.createBufferSource();
-        noiseSource.buffer = buffer;
-
-        const noiseGain = audioContext.createGain();
-        noiseGain.gain.setValueAtTime(0.25, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
-
-        noiseSource.connect(noiseGain);
-        noiseGain.connect(audioContext.destination);
-
-        // Start and stop sounds
-        boomOsc.start(now);
-        boomOsc.stop(now + 0.4);
-        noiseSource.start(now);
-        noiseSource.stop(now + noiseDuration);
-    };
-
-    if (audioContext.state === 'suspended') {
-        audioContext.resume().then(playSound).catch(err => console.error("Could not resume audio context for confetti sound:", err));
-    } else {
-        playSound();
-    }
-  }, []);
-  
-  useEffect(() => {
-    playConfettiSound();
-
-    const newParticles = Array.from({ length: count }).map((_, i) => {
-      const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
-      const duration = Math.random() * 1.5 + 1;
-      const size = Math.random() * 4 + 4;
-      const isRect = Math.random() > 0.2;
-      const rectWidth = size;
-      const rectHeight = size * 2;
-      
-      return {
-        id: i,
-        style: {
-          '--end-x': `${(Math.random() - 0.5) * 150}vw`,
-          '--end-y': `${(Math.random() - 0.5) * 150}vh`,
-          '--end-rotation': `${Math.random() * 540 + 540}deg`,
-          animationDuration: `${duration}s`,
-          animationDelay: `${Math.random() * 0.1}s`,
-          backgroundColor: colors[Math.floor(Math.random() * colors.length)],
-          left: '50%',
-          top: '50%', // Start from center
-          width: isRect ? `${rectWidth}px` : `${size}px`,
-          height: isRect ? `${rectHeight}px` : `${size}px`,
-          borderRadius: isRect ? '0' : '50%',
-        }
-      };
-    });
-    setParticles(newParticles);
-  }, [count, playConfettiSound]);
-
-  return e('div', { className: 'fixed inset-0 pointer-events-none z-[100] overflow-hidden' },
-    particles.map(p => e('div', {
-      key: p.id,
-      className: 'absolute animate-confetti-burst',
-      style: p.style,
-    }))
-  );
-});
-
 const Header = ({ onBack, title, children }) => e('header', { className: "p-4 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm sticky top-0 z-20 flex items-center shadow-sm" },
     onBack && e('button', { onClick: onBack, className: "p-2 mr-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors", 'aria-label': "Go back" },
         e(BackIcon, { className: "w-6 h-6" })
@@ -412,16 +313,8 @@ const HomeScreen = ({ onSelectGame, onInstall, canInstall, onShowInstructions, t
     );
 };
 
-const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle, initialContext, completedItems }) => {
-    const [openItems, setOpenItems] = useState(() => {
-        if (initialContext && initialContext.groupTitle && initialContext.subGroupTitle) {
-            const newSet = new Set();
-            newSet.add(initialContext.groupTitle);
-            newSet.add(`${initialContext.groupTitle}-${initialContext.subGroupTitle}`);
-            return newSet;
-        }
-        return new Set();
-    });
+const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle }) => {
+    const [openItems, setOpenItems] = useState(new Set());
 
     const toggleOpen = (key) => {
         setOpenItems(prev => {
@@ -451,49 +344,31 @@ const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle, initialConte
             e('div', { className: "space-y-4" },
                 flashcardDecks.map(group => {
                     const isGroupOpen = openItems.has(group.title);
-                    return e('div', { key: group.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md" },
-                        e('button', { onClick: () => toggleOpen(group.title), className: `w-full flex justify-between items-center p-4 text-left bg-sky-50 dark:bg-sky-900/40 transition-colors ${isGroupOpen ? 'rounded-t-lg' : 'rounded-lg'}`, 'aria-expanded': isGroupOpen },
-                            e('h3', { className: "text-xl font-bold text-sky-700 dark:text-sky-400" }, group.title),
+                    return e('div', { key: group.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md transition-all duration-300" },
+                        e('button', { onClick: () => toggleOpen(group.title), className: "w-full flex justify-between items-center p-4 text-left", 'aria-expanded': isGroupOpen },
+                            e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100" }, group.title),
                             e(ChevronDownIcon, { className: `w-6 h-6 text-slate-500 transition-transform duration-300 ${isGroupOpen ? 'rotate-180' : ''}` })
                         ),
-                        e('div', { className: `accordion-content ${isGroupOpen ? 'open' : ''}` },
-                           e('div', null,
-                                e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2" },
-                                    group.subGroups.map(subGroup => {
-                                        const subGroupKey = `${group.title}-${subGroup.title}`;
-                                        const isSubGroupOpen = openItems.has(subGroupKey);
-                                        return e('div', { key: subGroupKey, className: "border border-slate-200 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-900/50" },
-                                            e('button', { onClick: () => toggleSubOpen(subGroupKey), className: "w-full flex justify-between items-center p-3 text-left", 'aria-expanded': isSubGroupOpen },
-                                                e('h4', { className: "font-semibold text-slate-800 dark:text-white" }, subGroup.title),
-                                                e(ChevronDownIcon, { className: `w-5 h-5 text-slate-400 transition-transform duration-300 ${isSubGroupOpen ? 'rotate-180' : ''}` })
-                                            ),
-                                            e('div', { className: `accordion-content ${isSubGroupOpen ? 'open' : ''}` },
-                                               e('div', null,
-                                                    e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
-                                                        subGroup.items.map(item => {
-                                                            const isCompleted = completedItems.has(`flashcards-${item.id}`);
-                                                            const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
-                                                            
-                                                            return e('button', { 
-                                                                key: item.id, 
-                                                                onClick: () => onSelectTopic(item, { groupTitle: group.title, subGroupTitle: subGroup.title }), 
-                                                                className: buttonClass
-                                                            },
-                                                                e('div', {className: "flex justify-between items-start"},
-                                                                  e('div', null,
-                                                                    e('p', { className: "text-sm font-semibold text-sky-600 dark:text-sky-400" }, item.type),
-                                                                    e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question)
-                                                                  ),
-                                                                  isCompleted && e(CheckCircleIcon, { className: "w-6 h-6 text-green-500 flex-shrink-0 ml-2" })
-                                                                )
-                                                            )
-                                                        })
-                                                    )
-                                                )
+                        e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isGroupOpen ? 'max-h-[3000px]' : 'max-h-0'}` },
+                            e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2" },
+                                group.subGroups.map(subGroup => {
+                                    const subGroupKey = `${group.title}-${subGroup.title}`;
+                                    const isSubGroupOpen = openItems.has(subGroupKey);
+                                    return e('div', { key: subGroupKey, className: "border border-slate-200 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-900/50" },
+                                        e('button', { onClick: () => toggleSubOpen(subGroupKey), className: "w-full flex justify-between items-center p-3 text-left", 'aria-expanded': isSubGroupOpen },
+                                            e('h4', { className: "font-semibold text-slate-700 dark:text-slate-300" }, subGroup.title),
+                                            e(ChevronDownIcon, { className: `w-5 h-5 text-slate-400 transition-transform duration-300 ${isSubGroupOpen ? 'rotate-180' : ''}` })
+                                        ),
+                                        e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isSubGroupOpen ? 'max-h-[2000px]' : 'max-h-0'}` },
+                                            e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
+                                                subGroup.items.map(item => e('button', { key: item.id, onClick: () => onSelectTopic(item), className: "p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border border-slate-200 dark:border-slate-700" },
+                                                    e('p', { className: "text-sm font-semibold text-sky-600 dark:text-sky-400" }, item.type),
+                                                    e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question)
+                                                ))
                                             )
-                                        );
-                                    })
-                                )
+                                        )
+                                    );
+                                })
                             )
                         )
                     );
@@ -503,18 +378,10 @@ const FlashcardsMenuScreen = ({ onSelectTopic, onBack, themeToggle, initialConte
     );
 };
 
-const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle, completedItems, initialContext }) => {
-    const [openItems, setOpenItems] = useState(() => {
-        if (initialContext && initialContext.groupTitle && initialContext.subGroupTitle) {
-            const newSet = new Set();
-            newSet.add(initialContext.groupTitle);
-            newSet.add(`${initialContext.groupTitle}-${initialContext.subGroupTitle}`);
-            return newSet;
-        }
-        return new Set();
-    });
+const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle }) => {
+    const [openItems, setOpenItems] = useState(new Set());
 
-    const handleSelect = (item, groupTitle, subGroupTitle) => {
+    const handleSelect = (item) => {
         let pairs = [];
         if (item.type === QuizItemType.QA && item.answers) {
             item.answers.forEach(answer => {
@@ -533,7 +400,7 @@ const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle, compl
                 question: `Match: ${item.question}`,
                 type: QuizItemType.MATCH_SCRIPTURE,
                 pairs: pairs
-            }, { groupTitle, subGroupTitle });
+            });
         } else {
             alert("This category has no scriptures to match.");
         }
@@ -563,46 +430,34 @@ const ScriptureMatchingMenuScreen = ({ onSelectTopic, onBack, themeToggle, compl
                 flashcardDecks.map(group => {
                     const isGroupOpen = openItems.has(group.title);
                     return e('div', { key: group.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md" },
-                        e('button', { onClick: () => toggleOpen(group.title), className: `w-full flex justify-between items-center p-4 text-left bg-sky-50 dark:bg-sky-900/40 transition-colors ${isGroupOpen ? 'rounded-t-lg' : 'rounded-lg'}`, 'aria-expanded': isGroupOpen },
-                            e('h3', { className: "text-xl font-bold text-sky-700 dark:text-sky-400" }, group.title),
-                            e(ChevronDownIcon, { className: `w-6 h-6 text-slate-500 transition-transform duration-300 ${isGroupOpen ? 'rotate-180' : ''}` })
+                        e('button', { onClick: () => toggleOpen(group.title), className: "w-full flex justify-between items-center p-4 text-left" },
+                            e('h3', { className: "text-xl font-bold" }, group.title),
+                            e(ChevronDownIcon, { className: `w-6 h-6 text-slate-500 transition-transform ${isGroupOpen ? 'rotate-180' : ''}` })
                         ),
-                        e('div', { className: `accordion-content ${isGroupOpen ? 'open' : ''}` },
-                           e('div', null,
-                                e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2" },
-                                    group.subGroups.map(subGroup => {
-                                        const subGroupKey = `${group.title}-${subGroup.title}`;
-                                        const isSubGroupOpen = openItems.has(subGroupKey);
-                                        return e('div', { key: subGroupKey, className: "border border-slate-200 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-900/50" },
-                                            e('button', { onClick: () => toggleSubOpen(subGroupKey), className: "w-full flex justify-between items-center p-3 text-left" },
-                                                e('h4', { className: "font-semibold text-slate-800 dark:text-white" }, subGroup.title),
-                                                e(ChevronDownIcon, { className: `w-5 h-5 text-slate-400 transition-transform duration-300 ${isSubGroupOpen ? 'rotate-180' : ''}` })
-                                            ),
-                                            e('div', { className: `accordion-content ${isSubGroupOpen ? 'open' : ''}` },
-                                               e('div', null,
-                                                    e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
-                                                        subGroup.items.map(item => {
-                                                            const isCompleted = completedItems.has(`match-scripture-${item.id}`);
-                                                            const buttonClass = `p-4 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
-
-                                                            return e('button', { 
-                                                                key: item.id, 
-                                                                onClick: () => handleSelect(item, group.title, subGroup.title), 
-                                                                className: buttonClass
-                                                            },
-                                                                e('div', { className: "flex justify-between items-start" },
-                                                                    e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question),
-                                                                    isCompleted && e(CheckCircleIcon, { className: "w-6 h-6 text-green-500 flex-shrink-0 ml-2" })
-                                                                )
-                                                            );
-                                                        })
-                                                    )
-                                                )
+                        e('div', { className: `transition-all duration-300 ease-in-out overflow-hidden ${isGroupOpen ? 'max-h-[3000px]' : 'max-h-0'}` },
+                           e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2" },
+                                group.subGroups.map(subGroup => {
+                                    const subGroupKey = `${group.title}-${subGroup.title}`;
+                                    const isSubGroupOpen = openItems.has(subGroupKey);
+                                    return e('div', { key: subGroupKey, className: "border border-slate-200 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-900/50" },
+                                        e('button', { onClick: () => toggleSubOpen(subGroupKey), className: "w-full flex justify-between items-center p-3 text-left" },
+                                            e('h4', { className: "font-semibold text-slate-700 dark:text-slate-300" }, subGroup.title),
+                                            e(ChevronDownIcon, { className: `w-5 h-5 text-slate-400 transition-transform ${isSubGroupOpen ? 'rotate-180' : ''}` })
+                                        ),
+                                        e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isSubGroupOpen ? 'max-h-[2000px]' : 'max-h-0'}` },
+                                            e('div', { className: "p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-600" },
+                                                subGroup.items.map(item => e('button', { 
+                                                    key: item.id, 
+                                                    onClick: () => handleSelect(item), 
+                                                    className: "p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-left group border border-slate-200 dark:border-slate-700" 
+                                                },
+                                                    e('p', { className: "text-md font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, item.question)
+                                                ))
                                             )
-                                        );
-                                    })
-                               )
-                            )
+                                        )
+                                    );
+                                })
+                           )
                         )
                     );
                 })
@@ -634,12 +489,6 @@ const CenteredScriptureList = ({ scriptures }) => e('div', { className: "space-y
     ))
 );
 
-const CenteredScriptureText = ({ scriptures }) => e('div', { className: "space-y-4 text-center flex items-center justify-center h-full" },
-    scriptures.map((s, i) => e('div', { key: i },
-        e('p', { className: "font-serif text-xl text-slate-700 dark:text-slate-300 leading-relaxed" }, s.text)
-    ))
-);
-
 const ScriptureTextOnly = ({ scriptures }) => e('div', { className: "space-y-4" },
     scriptures.map((s, i) => e('div', { key: i, className: "flex flex-col justify-center items-center h-full text-center" },
         e('p', { className: "font-serif text-slate-700 dark:text-slate-300 leading-relaxed text-lg" }, s.text),
@@ -647,31 +496,22 @@ const ScriptureTextOnly = ({ scriptures }) => e('div', { className: "space-y-4" 
     ))
 );
 
-const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
+const GameScreen = ({ topic, onBack, themeToggle }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isReversed, setIsReversed] = useState(false);
   const [gameItems, setGameItems] = useState([]);
-  const hasCompleted = useRef(false);
 
-  useEffect(() => {
-    hasCompleted.current = false;
-    let items = [];
-    if (topic.type === QuizItemType.QA) items = topic.answers;
-    else if (topic.type === QuizItemType.PROPHECY) items = topic.pairs;
-    else items = [topic];
-    setGameItems(items);
-    setCurrentIndex(0);
-    setIsFlipped(false);
-    setIsReversed(false);
-  }, [topic]);
-  
-  useEffect(() => {
-    if (!hasCompleted.current && gameItems.length > 0 && currentIndex === gameItems.length - 1) {
-        onComplete(topic.id);
-        hasCompleted.current = true;
-    }
-  }, [currentIndex, gameItems.length, onComplete, topic.id]);
+    useEffect(() => {
+        let items = [];
+        if (topic.type === QuizItemType.QA) items = topic.answers;
+        else if (topic.type === QuizItemType.PROPHECY) items = topic.pairs;
+        else items = [topic];
+        setGameItems(items);
+        setCurrentIndex(0);
+        setIsFlipped(false);
+        setIsReversed(false);
+    }, [topic]);
 
     const handleShuffle = useCallback(() => {
         setGameItems(shuffleArray(gameItems));
@@ -699,9 +539,6 @@ const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
         switch (topic.type) {
             case QuizItemType.QA:
                 if (!currentItem) return null;
-                if (isReversed) {
-                    return e(ScriptureTextOnly, { scriptures: [{ text: currentItem.keyPhrase }] });
-                }
                 return e('div', { className: "text-center flex flex-col justify-center items-center h-full" },
                     e('p', { className: "text-sm font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 mb-4" }, "Recall the Scripture"),
                     e('p', { className: "text-4xl font-bold font-sans text-slate-800 dark:text-slate-100" }, currentItem.reference)
@@ -723,18 +560,13 @@ const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
         switch (topic.type) {
             case QuizItemType.QA:
                 if (!currentItem) return null;
-                if (isReversed) {
-                    return e('div', { className: "text-center flex flex-col justify-center items-center h-full" },
-                        e('p', { className: "text-4xl font-bold font-sans text-slate-800 dark:text-slate-100" }, currentItem.reference)
-                    );
-                }
-                return e(CenteredScriptureText, { scriptures: [{ text: currentItem.keyPhrase }] });
+                if (isReversed) return e(ScriptureTextOnly, { scriptures: [currentItem] });
+                return e('div', { className: "flex items-center justify-center h-full" }, e(CenteredScriptureList, { scriptures: [currentItem] }));
             case QuizItemType.PROPHECY:
                  if (!currentItem) return null;
-                const fulfillmentWithKeyPhrase = { ...currentItem.fulfillment, text: currentItem.fulfillment.keyPhrase };
                 return e('div', { className: "text-center flex flex-col justify-center h-full" },
                     e('p', { className: "text-base font-bold text-green-600 dark:text-green-400 mb-4" }, "FULFILLMENT"),
-                    e(CenteredScriptureList, { scriptures: [fulfillmentWithKeyPhrase] })
+                    e(CenteredScriptureList, { scriptures: [currentItem.fulfillment] })
                 );
             case QuizItemType.BOOKS:
                 return e('div', { className: "space-y-6 text-center" },
@@ -761,6 +593,9 @@ const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
         }
     };
     
+    const renderFront = () => isReversed ? renderBackContent() : renderFrontContent();
+    const renderBack = () => isReversed ? renderFrontContent() : renderBackContent();
+
     if (!currentItem) {
         return e('div', { className: "flex flex-col h-screen" },
             e(Header, { onBack, title: topic.question }, themeToggle),
@@ -776,7 +611,7 @@ const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
         e(Header, { onBack, title: topic.question }, themeToggle),
         e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center" },
             e('div', { className: "w-full max-w-2xl h-[450px] mb-6" },
-                e(Flashcard, { front: renderFrontContent(), back: renderBackContent(), isFlipped, onFlip: () => setIsFlipped(!isFlipped) })
+                e(Flashcard, { front: renderFront(), back: renderBack(), isFlipped, onFlip: () => setIsFlipped(!isFlipped) })
             ),
             
             e('div', { className: "flex items-center justify-center space-x-2 sm:space-x-4 mt-6 w-full max-w-2xl" },
@@ -794,7 +629,7 @@ const GameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
 };
 
 // --- Book Quiz Screen Component ---
-const QuizScreen = ({ topic, onBack, themeToggle, onComplete }) => {
+const QuizScreen = ({ topic, onBack, themeToggle }) => {
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -819,7 +654,6 @@ const QuizScreen = ({ topic, onBack, themeToggle, onComplete }) => {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
     } else {
-      onComplete(topic.id);
       setQuizFinished(true);
     }
   };
@@ -845,15 +679,14 @@ const QuizScreen = ({ topic, onBack, themeToggle, onComplete }) => {
   if (quizFinished) {
       const isPerfectScore = score === questions.length;
       return e('div', { className: "flex flex-col h-screen" },
-        e(Confetti, null),
         e(Header, { onBack, title: "Quiz Results" }, themeToggle),
         e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in-up" },
-            e('h2', { className: "text-4xl font-bold mb-4 text-sky-600 dark:text-sky-400" }, "Congratulations!"),
-            e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, isPerfectScore ? "You answered every question correctly!" : "You finished the quiz. Great job!"),
+            e('h2', { className: "text-4xl font-bold mb-4" }, isPerfectScore ? "Well done!" : "Good effort!"),
+            e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, isPerfectScore ? "You answered every question correctly!" : "Do you want to try again?"),
             e('p', { className: "text-5xl font-bold mb-8" }, "Your score: ", e('span', { className: "text-sky-600 dark:text-sky-400" }, `${score} / ${questions.length}`)),
             e('div', { className: "flex space-x-4" },
                 e('button', { onClick: handleRestart, className: "px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Try Again"),
-                e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Menu")
+                e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Home")
             )
         )
     );
@@ -895,7 +728,7 @@ const QuizScreen = ({ topic, onBack, themeToggle, onComplete }) => {
 };
 
 // --- Matching Game Screen Component ---
-const MatchingGameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
+const MatchingGameScreen = ({ topic, onBack, themeToggle }) => {
     const [columnA, setColumnA] = useState([]);
     const [columnB, setColumnB] = useState([]);
     const [selectedA, setSelectedA] = useState(null);
@@ -961,22 +794,20 @@ const MatchingGameScreen = ({ topic, onBack, themeToggle, onComplete }) => {
     
     useEffect(() => {
         if (matchedPairs.size > 0 && matchedPairs.size === topic.pairs.length) {
-            onComplete(topic.id);
             setIsComplete(true);
         }
-    }, [matchedPairs, topic.pairs.length, onComplete, topic.id]);
+    }, [matchedPairs, topic.pairs.length]);
 
 
     if (isComplete) {
       return e('div', { className: "flex flex-col h-screen" },
-        e(Confetti, null),
         e(Header, { onBack, title: "Game Complete!" }, themeToggle),
         e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in-up" },
-            e('h2', { className: "text-4xl font-bold mb-4 text-sky-600 dark:text-sky-400" }, "Congratulations!"),
+            e('h2', { className: "text-4xl font-bold mb-4" }, "Well done!"),
             e('p', { className: "text-lg text-slate-600 dark:text-slate-300 mb-6" }, "You matched them all!"),
             e('div', { className: "flex space-x-4 mt-8" },
                 e('button', { onClick: initializeGame, className: "px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 transition-colors" }, "Play Again"),
-                e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Menu")
+                e('button', { onClick: onBack, className: "px-6 py-3 bg-white dark:bg-slate-800 font-semibold rounded-lg shadow-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" }, "Back to Home")
             )
         )
     );
@@ -1164,40 +995,18 @@ const mnemonicData = [
             )
         )
     ) },
-    {
-        title: "The Four Gospels & Acts",
-        content: e('div', {className: "space-y-2"},
-            e('p', null, "These first five books are historical narratives:"),
-            e('ul', {className: "list-disc list-inside space-y-1 pl-2"},
-                e('li', null, e('strong', null, "Matthew, Mark, Luke, John:"), " The four accounts of Jesus' life and ministry."),
-                e('li', null, e('strong', null, "Acts:"), " Follows the Gospels, documenting the history of the early Christian congregation.")
+    { 
+        title: "Christian Greek Scriptures (27 books)", 
+        content: e('div', { className: 'space-y-4' },
+            e('p', null, "Memorizing books by category is much easier than learning them all at once."),
+            e('ul', { className: 'list-disc list-inside space-y-1 pl-2 font-semibold text-slate-700 dark:text-slate-300' },
+                e('li', null, "The Four Gospels"),
+                e('li', null, "Acts of Apostles"),
+                e('li',null, "Paul's 14 Letters"),
+                e('li', null, "General Letters"),
+                e('li', null, "Revelation")
             )
-        )
-    },
-    {
-        title: "Paul's 14 Letters",
-        content: e('div', {className: "space-y-2"},
-            e('p', null, "Paul's letters can be remembered by following this logical flow:"),
-            e('ul', {className: "list-disc list-inside space-y-1 pl-2"},
-                e('li', null, "It starts with ", e('strong', null, "Romans"), ". Paul, an apostle to the nations, had Roman citizenship."),
-                e('li', null, "Next are all letters to congregations ending in '", e('strong', null, "ians"), "': 1 & 2 Corinthians, Galatians, Ephesians, Philippians, Colossians, 1 & 2 Thessalonians."),
-                e('li', null, "Then, letters to ", e('strong', null, "Timothy"), " (1 & 2) and ", e('strong', null, "Titus"), ", regarding spiritual requirements for privileges of service."),
-                e('li', null, "A personal appeal to ", e('strong', null, "Philemon"), " on the basis of love to take back his runaway slave, who had become a Christian."),
-                e('li', null, "He ends with a letter to the ", e('strong', null, "Hebrew"), " Christians in Jerusalem and Judea.")
-            )
-        )
-    },
-    {
-        title: "General Letters & Revelation",
-        content: e('div', {className: "space-y-2"},
-            e('ul', {className: "list-disc list-inside space-y-1 pl-2"},
-                e('li', null, e('strong', null, "James")),
-                e('li', null, e('strong', null, "1 & 2 Peter")),
-                e('li', null, e('strong', null, "1, 2, & 3 John")),
-                e('li', null, e('strong', null, "Jude")),
-                e('li', {className: "mt-2"}, "The final book of the Bible is ", e('strong', null, "Revelation"), ".")
-            )
-        )
+        ) 
     }
 ];
 
@@ -1214,16 +1023,14 @@ const BookOrderPracticeScreen = ({ onBack, themeToggle }) => {
             e('div', { className: "space-y-4" },
                 mnemonicData.map(item => {
                     const isOpen = openKey === item.title;
-                    return e('div', { key: item.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md" },
+                    return e('div', { key: item.title, className: "bg-white dark:bg-slate-800 rounded-lg shadow-md transition-all duration-300" },
                         e('button', { onClick: () => toggleOpen(item.title), className: "w-full flex justify-between items-center p-4 text-left", 'aria-expanded': isOpen },
                             e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100" }, item.title),
                             e(ChevronDownIcon, { className: `w-6 h-6 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}` })
                         ),
-                        e('div', { className: `accordion-content ${isOpen ? 'open' : ''}` },
-                            e('div', null,
-                                e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700" },
-                                    e('div', { className: 'prose dark:prose-invert prose-p:my-2 prose-ul:my-2' }, item.content)
-                                )
+                        e('div', { className: `transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[1000px]' : 'max-h-0'}` },
+                            e('div', { className: "px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700" },
+                                e('div', { className: 'prose dark:prose-invert prose-p:my-2 prose-ul:my-2' }, item.content)
                             )
                         )
                     );
@@ -1233,28 +1040,20 @@ const BookOrderPracticeScreen = ({ onBack, themeToggle }) => {
     );
 };
 
-const BookOrderChallengeScreen = ({ onSelectSection, onBack, themeToggle, completedItems }) => {
+const BookOrderChallengeScreen = ({ onSelectSection, onBack, themeToggle }) => {
     return e('div', { className: "flex flex-col h-screen" },
         e(Header, { onBack, title: "Bible Book Order Challenge" }, themeToggle),
         e('main', { className: "p-4 flex-grow flex items-center justify-center" },
             e('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl" },
                 bibleBookOrderData.map(section => {
                     const bookCount = section.categories.flatMap(c => c.books).length;
-                    const isCompleted = completedItems.has(`order-books-${section.id}`);
-                    const buttonClass = `p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all text-left group border ${isCompleted ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`;
-
                     return e('button', {
                         key: section.sectionTitle,
                         onClick: () => onSelectSection(section),
-                        className: buttonClass
+                        className: "p-6 bg-white dark:bg-slate-800 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all text-left group border border-slate-200 dark:border-slate-700"
                     },
-                      e('div', {className: 'flex justify-between items-start'},
-                        e('div', null, 
-                          e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, section.sectionTitle),
-                          e('p', { className: "text-md text-slate-500 dark:text-slate-400 mt-1" }, `${bookCount} books`)
-                        ),
-                        isCompleted && e(CheckCircleIcon, { className: "w-8 h-8 text-green-500 flex-shrink-0 ml-2" })
-                      )
+                        e('h3', { className: "text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors" }, section.sectionTitle),
+                        e('p', { className: "text-md text-slate-500 dark:text-slate-400 mt-1" }, `${bookCount} books`)
                     )
                 })
             )
@@ -1262,7 +1061,7 @@ const BookOrderChallengeScreen = ({ onSelectSection, onBack, themeToggle, comple
     );
 };
 
-const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
+const BookOrderGameScreen = ({ section, onBack, themeToggle }) => {
     const [stage, setStage] = useState('books'); // 'books', 'categories', 'complete'
     const [categoryIndex, setCategoryIndex] = useState(0);
     const [completedCategories, setCompletedCategories] = useState([]);
@@ -1272,7 +1071,6 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
     const [isCategoryCorrect, setIsCategoryCorrect] = useState(false);
     
     const [categoryOrder, setCategoryOrder] = useState([]);
-    const [categoryStatuses, setCategoryStatuses] = useState([]);
     const [feedback, setFeedback] = useState({ text: '', type: '' });
     const [isFinalOrderCorrect, setIsFinalOrderCorrect] = useState(false);
 
@@ -1280,11 +1078,6 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
     const dragOverItem = useRef(null);
     const [dragOverIndex, setDragOverIndex] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
-    const hasCompleted = useRef(false);
-
-    useEffect(() => {
-        hasCompleted.current = false;
-    }, [section.id]);
 
     const currentCategory = useMemo(() => section.categories[categoryIndex], [section, categoryIndex]);
 
@@ -1344,20 +1137,14 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
         const correctOrder = section.categories.map(c => c.title);
         const userOrder = categoryOrder.map(c => c.title);
         const isCorrect = JSON.stringify(correctOrder) === JSON.stringify(userOrder);
-        
-        const statuses = userOrder.map((title, index) => correctOrder[index] === title ? 'correct' : 'incorrect');
-        setCategoryStatuses(statuses);
 
         if (isCorrect) {
-            if (!hasCompleted.current) {
-                onComplete(section.id);
-                hasCompleted.current = true;
-            }
             setIsFinalOrderCorrect(true);
             setFeedback({ text: "Perfect! You've ordered everything correctly.", type: 'success' });
             setTimeout(() => setStage('complete'), 1500);
         } else {
-            setFeedback({ text: 'Not quite right. Correct items are green, incorrect are red.', type: 'error' });
+            setFeedback({ text: 'Not quite the right order for the categories. Try again!', type: 'error' });
+            setTimeout(() => setFeedback({text: '', type: ''}), 2500);
         }
     };
 
@@ -1368,11 +1155,7 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', ''); // For Firefox compatibility
         }
-        if (stage === 'categories') {
-            setCategoryStatuses([]);
-            setFeedback({ text: '', type: '' });
-        }
-    }, [stage]);
+    }, []);
 
     const handleDragEnd = useCallback(() => {
         dragItem.current = null;
@@ -1499,13 +1282,11 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
         setCategoryIndex(0);
         setCompletedCategories([]);
         setCategoryOrder([]);
-        setCategoryStatuses([]);
         setIsFinalOrderCorrect(false);
     }, []);
 
     if (stage === 'complete') {
         return e('div', { className: "flex flex-col h-screen" },
-            e(Confetti, null),
             e(Header, { onBack, title: section.sectionTitle }, themeToggle),
             e('main', { className: "flex-grow p-4 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in-up" },
                 e('h2', { className: "text-4xl font-bold mb-4 text-sky-600 dark:text-sky-400" }, "Congratulations!"),
@@ -1608,23 +1389,17 @@ const BookOrderGameScreen = ({ section, onBack, themeToggle, onComplete }) => {
                 },
                     categoryOrder.map((cat, index) => {
                         const isDraggable = !isFinalOrderCorrect;
-                        const status = categoryStatuses[index];
                         const categoryBoxClass = `w-full p-4 rounded-lg shadow-md transition-colors duration-500 flex items-center justify-between ${
-                            isFinalOrderCorrect ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
-                            : status === 'correct' ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
-                            : status === 'incorrect' ? 'border border-red-500 bg-red-100 dark:bg-red-900/50'
-                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                            isFinalOrderCorrect
+                                ? 'border border-green-500 bg-green-100 dark:bg-green-900/50'
+                                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
                         }`;
                         
-                        const titleClass = isFinalOrderCorrect || status === 'correct'
+                        const titleClass = isFinalOrderCorrect
                             ? 'font-bold text-lg text-green-800 dark:text-green-200'
-                            : status === 'incorrect'
-                            ? 'font-bold text-lg text-red-800 dark:text-red-200'
                             : 'font-bold text-lg text-sky-700 dark:text-sky-300';
-                        const booksClass = isFinalOrderCorrect || status === 'correct'
+                        const booksClass = isFinalOrderCorrect
                             ? 'text-sm text-green-700 dark:text-green-400 mt-1'
-                             : status === 'incorrect'
-                            ? 'text-sm text-red-700 dark:text-red-400 mt-1'
                             : 'text-sm text-slate-500 dark:text-slate-400 mt-1';
                         
                         return e(React.Fragment, { key: cat.title },
@@ -1694,45 +1469,6 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const { showUpdateNotification, handleUpdate } = useServiceWorkerUpdater();
   const [theme, setTheme] = useTheme();
-  const [completedItems, setCompletedItems] = useState(() => new Set());
-
-  useEffect(() => {
-    const resumeAudioContext = () => {
-      if (!window.appAudioContext) {
-        window.appAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (window.appAudioContext.state === 'suspended') {
-        window.appAudioContext.resume();
-      }
-      document.body.removeEventListener('click', resumeAudioContext);
-      document.body.removeEventListener('touchstart', resumeAudioContext);
-    };
-    document.body.addEventListener('click', resumeAudioContext);
-    document.body.addEventListener('touchstart', resumeAudioContext);
-    return () => {
-      document.body.removeEventListener('click', resumeAudioContext);
-      document.body.removeEventListener('touchstart', resumeAudioContext);
-    };
-  }, []);
-
-  useEffect(() => {
-    const storedCompleted = localStorage.getItem('completedItems_v2');
-    if (storedCompleted) {
-        setCompletedItems(new Set(JSON.parse(storedCompleted)));
-    }
-  }, []);
-
-  const markAsComplete = useCallback((gameMode, itemId) => {
-    if (!gameMode || !itemId) return;
-    const completionKey = `${gameMode}-${itemId}`;
-    setCompletedItems(prev => {
-        if (prev.has(completionKey)) return prev;
-        const newSet = new Set(prev);
-        newSet.add(completionKey);
-        localStorage.setItem('completedItems_v2', JSON.stringify(Array.from(newSet)));
-        return newSet;
-    });
-  }, []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -1781,17 +1517,17 @@ export default function App() {
     setView({ name: 'bookOrderGame', topic: section });
   };
 
-  const handleSelectTopic = (topic, context) => {
-    setView({ name: 'game', topic: topic, context: context });
+  const handleSelectTopic = (topic) => {
+    setView({ name: 'game', topic: topic });
   };
   
   const handleBack = () => {
-    const { name, topic, context } = view;
+    const { name, topic } = view;
     if (name === 'game') {
         if (topic.type === QuizItemType.MATCH_SCRIPTURE) {
-            setView({ name: 'scriptureMatchingMenu', context: context });
+            setView({ name: 'scriptureMatchingMenu' });
         } else {
-            setView({ name: 'flashcards', context: context });
+            setView({ name: 'flashcards' });
         }
     } else if (name === 'flashcards' || name === 'scriptureMatchingMenu' || name === 'bookOrderStart') {
         setView({ name: 'home' });
@@ -1804,41 +1540,33 @@ export default function App() {
 
   const renderScreen = () => {
     const themeToggle = e(ThemeToggle, { theme, setTheme });
-    const baseProps = { onBack: handleBack, themeToggle, completedItems };
+    const props = { onBack: handleBack, themeToggle };
 
     switch (view.name) {
       case 'home':
         return e(HomeScreen, { onSelectGame: handleSelectGame, onInstall: handleInstallClick, canInstall: !!installPrompt, onShowInstructions: handleShowInstructions, themeToggle });
       case 'flashcards':
-        return e(FlashcardsMenuScreen, { ...baseProps, onSelectTopic: handleSelectTopic, initialContext: view.context });
+        return e(FlashcardsMenuScreen, { ...props, onSelectTopic: handleSelectTopic });
       case 'scriptureMatchingMenu':
-        return e(ScriptureMatchingMenuScreen, { ...baseProps, onSelectTopic: handleSelectTopic, initialContext: view.context });
+        return e(ScriptureMatchingMenuScreen, { ...props, onSelectTopic: handleSelectTopic });
       case 'bookOrderStart':
         return e(BookOrderStartScreen, {
-            ...baseProps,
+            ...props,
             onPractice: () => setView({ name: 'bookOrderPractice' }),
             onStart: () => setView({ name: 'bookOrderChallenge' })
         });
       case 'bookOrderPractice':
-        return e(BookOrderPracticeScreen, { ...baseProps });
+        return e(BookOrderPracticeScreen, { ...props });
       case 'bookOrderChallenge':
-        return e(BookOrderChallengeScreen, { ...baseProps, onSelectSection: handleSelectBookOrderSection });
+        return e(BookOrderChallengeScreen, { ...props, onSelectSection: handleSelectBookOrderSection });
       case 'bookOrderGame':
         return e(BookOrderGameScreen, { 
-            ...baseProps,
+            ...props,
             section: view.topic,
-            onComplete: (itemId) => markAsComplete('order-books', itemId)
         });
       case 'game':
         if (!view.topic) return e(HomeScreen, { onSelectGame: handleSelectGame, themeToggle }); // Fallback
-        
-        const gameMode = view.topic.type === QuizItemType.MATCH_SCRIPTURE ? 'match-scripture' : 'flashcards';
-        const gameProps = { 
-            ...baseProps, 
-            topic: view.topic,
-            onComplete: (itemId) => markAsComplete(gameMode, itemId) 
-        };
-
+        const gameProps = { ...props, topic: view.topic };
         switch (view.topic.type) {
           case QuizItemType.BOOK_QUIZ:
             return e(QuizScreen, gameProps);
